@@ -1,14 +1,15 @@
 services:
   webapp:
-    hostname: arhreestr.ru
-    image: ${DOCKER_REGISTRY-}webapp
+    hostname: arhreestr.ru            # как ты и указал
+    image: webapp                     # локальное имя образа
     build:
-      context: .
-      dockerfile: WebApp/Dockerfile
+      context: .                      # корень проекта (где лежит папка WebApp)
+      dockerfile: WebApp/Dockerfile   # путь до Dockerfile
     environment:
-      - ASPNETCORE_URLS=http://+:8080;https://+:8081
-      - ConnectionStrings__DefaultConnection=Serverdb;Port=3306;Database=ispp2108;User=ispp2108;Password=2108;TreatTinyAsBoolean=true;
+      # ASP.NET Core будет слушать 8080 (HTTP) и 8081 (HTTPS) внутри контейнера
+      ASPNETCORE_URLS: "http://+:8080;https://+:8081"
+      # Строка подключения к БД
+      ConnectionStrings__DefaultConnection: "Server=Server=db;Port=3306;Database=ispp2108;User=ispp2108;Password=2108;TreatTinyAsBoolean=true;"
     ports:
       - "8080:8080"
       - "8081:8081"
-
