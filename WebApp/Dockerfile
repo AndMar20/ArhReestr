@@ -13,15 +13,15 @@ COPY ["DataLayer/DataLayer.csproj", "DataLayer/"]
 
 COPY offline-packages/ /offline-packages/
 
-ENV NUGET_HTTP_TIMEOUT=600 \
-    NUGET_DOWNLOAD_TIMEOUT=600 \
-    NUGET_ENABLE_ENHANCED_HTTP_RETRY=true \
-    NUGET_ENHANCED_HTTP_RETRY_COUNT=6 \
-    NUGET_CERT_REVOCATION_MODE=offline
+RUN dotnet restore "./WebApp/WebApp.csproj" \
+    --source /offline-packages \
+    --disable-parallel
 
 COPY . .
 
 WORKDIR "/src/WebApp"
+
+RUN dotnet build "./WebApp.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
@@ -30,4 +30,5 @@ RUN dotnet publish "./WebApp.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
+
 ENTRYPOINT ["dotnet", "WebApp.dll"]
