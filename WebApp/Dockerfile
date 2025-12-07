@@ -19,11 +19,6 @@ ENV NUGET_HTTP_TIMEOUT=600 \
     NUGET_ENHANCED_HTTP_RETRY_COUNT=6 \
     NUGET_CERT_REVOCATION_MODE=offline
 
-RUN dotnet restore "./WebApp/WebApp.csproj" \
-    --source /offline-packages \
-    --disable-parallel \
-    --ignore-failed-sources
-
 COPY . .
 
 WORKDIR "/src/WebApp"
