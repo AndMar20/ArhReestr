@@ -1,0 +1,190 @@
+@page "/admin"
+@attribute [Authorize(Policy = "RequireAdmin")]
+@inject ReportService ReportService
+@inject InteractionService InteractionService
+
+<PageTitle>Панель администратора</PageTitle>
+
+@if (IsLoading)
+{
+    <div class="alert info">Подключаемся к базе данных и загружаем статистику...</div>
+}
+else
+{
+    <section class="hero-card">
+        <div class="section-header">
+            <div>
+                <h1 class="section-title">Панель администратора</h1>
+                <p class="section-sub">Отслеживайте активность районов, работу риелторов и динамику заявок.</p>
+            </div>
+            <a class="primary" href="/reports/admin.xlsx" target="_blank">Скачать отчёт (.xlsx)</a>
+        </div>
+        <div class="stat-grid">
+            <div class="stat-card">
+                <h3>Всего заявок</h3>
+                <div class="number">@Interactions.Count</div>
+            </div>
+            <div class="stat-card">
+                <h3>Риелторов активно</h3>
+                <div class="number">@Agents.Count</div>
+            </div>
+            <div class="stat-card">
+                <h3>Популярных районов</h3>
+                <div class="number">@Districts.Count</div>
+            </div>
+            <div class="stat-card">
+                <h3>Сделок завершено</h3>
+                <div class="number">@ClosedDeals</div>
+            </div>
+        </div>
+    </section>
+
+    @if (!string.IsNullOrEmpty(Notification))
+    {
+        <div class="alert @NotificationStyle">@Notification</div>
+    }
+
+    <div class="grid">
+        <article>
+            <div class="section-header">
+                <h2>Популярные районы</h2>
+                <span class="small-text">Обращений</span>
+            </div>
+            <ol>
+                @foreach (var item in Districts)
+                {
+                    <li>@item.Category — @item.Value</li>
+                }
+            </ol>
+        </article>
+        <article>
+            <div class="section-header">
+                <h2>Активность риелторов</h2>
+                <span class="small-text">Ведут клиентов</span>
+            </div>
+            <ol>
+                @foreach (var item in Agents)
+                {
+                    <li>@item.Category — @item.Value</li>
+                }
+            </ol>
+        </article>
+        <article>
+            <div class="section-header">
+                <h2>Итоги взаимодействий</h2>
+                <span class="small-text">По статусам</span>
+            </div>
+            <ol>
+                @foreach (var item in Statuses)
+                {
+                    <li>@item.Category — @item.Value</li>
+                }
+            </ol>
+        </article>
+    </div>
+
+    <div class="panel" style="margin-top:1.5rem;">
+        <div class="section-header">
+            <h2>Последние взаимодействия</h2>
+            <span class="small-text">@Interactions.Count записей</span>
+        </div>
+
+        @if (Interactions.Count == 0)
+        {
+            <p class="muted">Записей пока нет.</p>
+        }
+        else
+        {
+            <div class="table-wrapper">
+                <table class="data-table stacked-table">
+                    <thead>
+                        <tr>
+                            <th>Клиент</th>
+                            <th>Риелтор</th>
+                            <th>Объект</th>
+                            <th>Статус</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var interaction in Interactions)
+                        {
+                            <tr>
+                                <td data-label="Клиент">
+                                    <div class="cell-primary">@interaction.Client</div>
+                                    <div class="cell-note">Связался: @interaction.ContactedAt.ToString("g")</div>
+                                </td>
+                                <td data-label="Риелтор">
+                                    <div class="cell-primary">@interaction.Agent</div>
+                                    <div class="cell-note">ID: @interaction.AgentId</div>
+                                </td>
+                                <td data-label="Объект">
+                                    <div class="cell-primary">@interaction.RealEstate</div>
+                                    <div class="cell-note">Обновлено: @interaction.UpdatedAt.ToString("g")</div>
+                                </td>
+                                <td data-label="Статус" class="status-cell">
+                                    <span class="badge @GetStatusBadge(interaction.Status)">@interaction.Status</span>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private IReadOnlyList<AdminReportRow> Districts { get; set; } = Array.Empty<AdminReportRow>();
+    private IReadOnlyList<AdminReportRow> Agents { get; set; } = Array.Empty<AdminReportRow>();
+    private IReadOnlyList<AdminReportRow> Statuses { get; set; } = Array.Empty<AdminReportRow>();
+    private IReadOnlyList<InteractionSummary> Interactions { get; set; } = Array.Empty<InteractionSummary>();
+    private string? Notification;
+    private string NotificationStyle { get; set; } = "info";
+    private bool IsLoading { get; set; } = true;
+    private int ClosedDeals => GetStatusCount("закры");
+    private static string GetStatusBadge(string status)
+    {
+        if (status.Contains("закры", StringComparison.OrdinalIgnoreCase))
+        {
+            return "success";
+        }
+
+        if (status.Contains("работ", StringComparison.OrdinalIgnoreCase) || status.Contains("встреч", StringComparison.OrdinalIgnoreCase))
+        {
+            return "accent";
+        }
+
+        return string.Empty;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var report = await ReportService.BuildAsync();
+            Districts = report.Districts;
+            Agents = report.Agents;
+            Statuses = report.Statuses;
+            Interactions = await InteractionService.GetAdminInteractionsAsync();
+        }
+        catch (InvalidOperationException ex)
+        {
+            Notification = ex.Message;
+            NotificationStyle = "error";
+        }
+        catch (Exception ex)
+        {
+            Notification = DatabaseErrorMessages.Resolve(ex);
+            NotificationStyle = "error";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private int GetStatusCount(string keyword)
+    {
+        return Statuses.FirstOrDefault(s => s.Category.Contains(keyword, StringComparison.OrdinalIgnoreCase))?.Value ?? 0;
+    }
+}

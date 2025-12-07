@@ -1,0 +1,650 @@
+@page "/"
+@page "/search"
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Identity
+@using global::System.Linq
+@using global::System.Security.Claims
+@implements IDisposable
+@inject RealEstateService RealEstateService
+@inject InteractionService InteractionService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject UserManager<ApplicationUser> UserManager
+@inject NavigationManager NavigationManager
+@inject FavoriteService FavoriteService
+
+<PageTitle>Каталог недвижимости</PageTitle>
+
+<section class="hero-card">
+        <div class="section-header hero-header">
+            <div>
+                <h1 class="section-title">Поиск недвижимости</h1>
+                <p class="section-sub">Выберите район, параметры жилья и оставьте заявку на консультацию с риелтором.</p>
+            </div>
+            <div class="hero-actions">
+                <div class="segmented-control" role="group" aria-label="Режим отображения">
+                    <button type="button" class='@GetSegmentedClass("cards")' @onclick='() => SetViewMode("cards")'>Карточки</button>
+                    <button type="button" class='@GetSegmentedClass("list")' @onclick='() => SetViewMode("list")'>Список</button>
+                </div>
+                <button class="ghost" type="button" @onclick="ResetFiltersAsync" disabled="@IsLoading">Сбросить фильтры</button>
+                <div class="tag-pill action">@StatusText</div>
+            </div>
+        </div>
+
+    <div class="quick-filters">
+        <span class="muted">Быстрые фильтры:</span>
+        <div class="chip-row">
+            <button type="button" class="chip ghost" @onclick="() => ApplyQuickFilterAsync(1, null, null, null)">1-комнатные</button>
+            <button type="button" class="chip ghost" @onclick="() => ApplyQuickFilterAsync(2, null, null, null)">2-комнатные</button>
+            <button type="button" class="chip ghost" @onclick="() => ApplyQuickFilterAsync(null, true, null, null)">С балконом</button>
+            <button type="button" class="chip ghost" @onclick="() => ApplyQuickFilterAsync(null, null, true, null)">Парковка</button>
+            <button type="button" class="chip ghost" @onclick="ResetFiltersAsync">Сбросить всё</button>
+        </div>
+    </div>
+    <div class="filters-toggle">
+        <button class="ghost" type="button" @onclick="ToggleFilters">@FilterToggleText</button>
+    </div>
+    <EditForm EditContext="filterContext" class="@FiltersCardClass" FormName="realEstateFilterForm" OnValidSubmit="OnFilterAsync">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+        <div class="filters">
+            <label>Район
+                <InputSelect @bind-Value="Filter.DistrictId" @onchange="ScheduleFilterAsync">
+                    <option value="">Все районы</option>
+                    @foreach (var district in Districts)
+                    {
+                        <option value="@district.Id">@district.Name</option>
+                    }
+                </InputSelect>
+            </label>
+            <label>Тип
+                <InputSelect @bind-Value="Filter.TypeId" @onchange="ScheduleFilterAsync">
+                    <option value="">Все типы</option>
+                    @foreach (var type in Types)
+                    {
+                        <option value="@type.Id">@type.Name</option>
+                    }
+                </InputSelect>
+            </label>
+            <label>Цена от
+                <InputNumber @bind-Value="Filter.MinPrice" min="0" step="50000" @oninput="ScheduleFilterAsync" />
+                <ValidationMessage For="@(() => Filter.MinPrice)" />
+            </label>
+            <label>Цена до
+                <InputNumber @bind-Value="Filter.MaxPrice" min="0" step="50000" @oninput="ScheduleFilterAsync" />
+                <ValidationMessage For="@(() => Filter.MaxPrice)" />
+            </label>
+            <label>Площадь от
+                <InputNumber @bind-Value="Filter.MinArea" min="0" step="1" />
+                <ValidationMessage For="@(() => Filter.MinArea)" />
+            </label>
+            <label>Площадь до
+                <InputNumber @bind-Value="Filter.MaxArea" min="0" step="1" />
+                <ValidationMessage For="@(() => Filter.MaxArea)" />
+            </label>
+            <label>Комнаты
+                <InputNumber @bind-Value="Filter.Rooms" min="0" step="1" />
+                <ValidationMessage For="@(() => Filter.Rooms)" />
+            </label>
+            <label class="checkbox-inline">
+                <InputCheckbox class="checkbox-control" @bind-Value="balconyRequired" @onchange="ScheduleFilterAsync" />
+                <span>Балкон</span>
+            </label>
+            <label class="checkbox-inline">
+                <InputCheckbox class="checkbox-control" @bind-Value="parkingRequired" @onchange="ScheduleFilterAsync" />
+                <span>Парковка</span>
+            </label>
+            <label class="checkbox-inline">
+                <InputCheckbox class="checkbox-control" @bind-Value="elevatorRequired" @onchange="ScheduleFilterAsync" />
+                <span>Лифт</span>
+            </label>
+        </div>
+        <div class="actions-row">
+            <label>Сортировка
+                <InputSelect @bind-Value="Filter.SortBy" @onchange="OnSortChanged">
+                    <option value="price">По цене</option>
+                    <option value="area">По площади</option>
+                    <option value="rooms">По комнатам</option>
+                    <option value="district">По району</option>
+                </InputSelect>
+            </label>
+            <label>Порядок
+                <InputSelect @bind-Value="sortDirection" @onchange="OnSortDirectionChanged" disabled="@IsLoading">
+                    <option value="asc">По возрастанию</option>
+                    <option value="desc">По убыванию</option>
+                </InputSelect>
+            </label>
+            <div class="buttons" style="align-items:flex-end;">
+                <button type="submit" class="primary" disabled="@IsLoading">Применить</button>
+            </div>
+        </div>
+    </EditForm>
+</section>
+
+@if (!string.IsNullOrEmpty(Notification))
+{
+    <div class="alert @NotificationStyle">@Notification</div>
+}
+
+@if (IsLoading)
+{
+    <p>Загрузка...</p>
+}
+else if (hasLoaded && Results.Count == 0)
+{
+    <p>Предложения не найдены.</p>
+}
+else
+{
+    <div class="panel" style="margin-top:1.5rem;">
+        <div class="section-header">
+            <h2>Объекты</h2>
+            <span class="small-text">@TotalResults записей · @PaginationStatus</span>
+        </div>
+
+        @if (viewMode == "cards")
+        {
+            <div class="cards">
+                @foreach (var item in Results)
+                {
+                    <article class="card">
+                        @if (!string.IsNullOrEmpty(item.PrimaryPhoto))
+                        {
+                            <img src="@item.PrimaryPhoto" alt="Фото" />
+                        }
+                        <div class="meta-line">
+                            <span class="tag-pill primary">@item.Type</span>
+                            <span class="tag-pill">@item.District</span>
+                        </div>
+                        <h2>@item.Address</h2>
+                        <div class="meta-line">
+                            <span>@item.Rooms-комн. · @item.Area м²</span>
+                            <span>Этаж @item.Floor/@item.TotalFloors</span>
+                        </div>
+                        <p class="price">@item.Price.ToString("N0") ₽</p>
+                        <div class="meta-line">
+                            <span class="small-text">Риелтор: @item.Agent</span>
+                            <div class="tags">
+                                @if (item.HasBalcony)
+                                {
+                                    <span class="tag-pill">Балкон</span>
+                                }
+                                @if (item.HasParking)
+                                {
+                                    <span class="tag-pill">Парковка</span>
+                                }
+                                @if (item.HasElevator)
+                                {
+                                    <span class="tag-pill">Лифт</span>
+                                }
+                            </div>
+                        </div>
+                        <div class="meta-line">
+                            <span class="small-text">Оценка ипотеки: @CalculateMonthlyPayment(item.Price).ToString("N0") ₽/мес</span>
+                            @if (item.Latitude is not null && item.Longitude is not null)
+                            {
+                                <span class="tag-pill">На карте</span>
+                            }
+                        </div>
+                        <div class="card-actions">
+                            <button @onclick="() => ContactAsync(item)" disabled="@(IsLoading || pendingFilter || contactingItems.Contains(item.Id))">
+                                @(contactingItems.Contains(item.Id) ? "Отправка..." : "Оставить заявку")
+                            </button>
+                            <button class="icon-button favorite-button @(favoriteIds.Contains(item.Id) ? "active" : string.Empty)" @onclick="() => ToggleFavoriteAsync(item.Id)" disabled="@(IsLoading || pendingFilter)">
+                                <span aria-hidden="true">★</span>
+                                <span class="sr-only">@(favoriteIds.Contains(item.Id) ? "Убрать из избранного" : "Добавить в избранное")</span>
+                            </button>
+                            <a class="ghost" href="/real-estate/@item.Id">Подробнее</a>
+                        </div>
+                    </article>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="table-wrapper">
+                <table class="data-table stacked-table">
+                    <thead>
+                        <tr>
+                            <th>Адрес</th>
+                            <th>Район</th>
+                            <th>Тип</th>
+                            <th>Комнаты</th>
+                            <th>Площадь</th>
+                            <th>Этаж</th>
+                            <th>Цена</th>
+                            <th>Риелтор</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Results)
+                        {
+                            <tr>
+                                <td data-label="Адрес">@item.Address</td>
+                                <td data-label="Район">@item.District</td>
+                                <td data-label="Тип">@item.Type</td>
+                                <td data-label="Комнаты">@item.Rooms</td>
+                                <td data-label="Площадь">@item.Area м²</td>
+                                <td data-label="Этаж">@item.Floor / @item.TotalFloors</td>
+                                <td data-label="Цена">@item.Price.ToString("N0") ₽</td>
+                                <td data-label="Риелтор">@item.Agent</td>
+                                <td class="actions-row table-actions" data-label="Действия">
+                                    <button @onclick="() => ContactAsync(item)" disabled="@(IsLoading || pendingFilter || contactingItems.Contains(item.Id))">
+                                        @(contactingItems.Contains(item.Id) ? "Отправка..." : "Оставить заявку")
+                                    </button>
+                                    <button class="icon-button favorite-button @(favoriteIds.Contains(item.Id) ? "active" : string.Empty)" @onclick="() => ToggleFavoriteAsync(item.Id)" disabled="@(IsLoading || pendingFilter)">
+                                        <span aria-hidden="true">★</span>
+                                        <span class="sr-only">@(favoriteIds.Contains(item.Id) ? "Убрать из избранного" : "Добавить в избранное")</span>
+                                    </button>
+                                    <a class="ghost" href="/real-estate/@item.Id">Подробнее</a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+}
+
+@if (Results.Any())
+{
+    <div class="actions-row" style="margin:0.5rem 0 0;">
+        <div class="badge">Страница @Filter.Page из @(TotalPages == 0 ? 1 : TotalPages)</div>
+        <div class="badge accent">Режим: @(viewMode == "cards" ? "карточки" : "список")</div>
+        <div class="buttons">
+            <button @onclick="PreviousPageAsync" disabled="@(IsLoading || !HasPreviousPage)">Предыдущая</button>
+            <button @onclick="NextPageAsync" disabled="@(IsLoading || !HasNextPage)">Следующая</button>
+        </div>
+    </div>
+}
+
+@code {
+    private readonly RealEstateFilterModel Filter = new();
+    private readonly List<RealEstateSummary> Results = new();
+    private EditContext? filterContext;
+    private CancellationTokenSource? filterDelayCts;
+    private List<DataLayer.Models.District> Districts { get; set; } = new();
+    private List<DataLayer.Models.RealEstateType> Types { get; set; } = new();
+    private bool IsLoading;
+    private string? Notification;
+    private string NotificationStyle = "info";
+    private bool balconyRequired;
+    private bool parkingRequired;
+    private bool elevatorRequired;
+    private bool hasLoaded;
+    private bool pendingFilter;
+    private bool isDebouncingFilter;
+    private bool filtersVisible = false;
+    private int TotalResults;
+    private string sortDirection = "asc";
+    private string viewMode = "cards";
+    private const int FilterDelayMs = 400;
+    private string AveragePriceText => Results.Count == 0 ? "—" : $"{(int)Results.Average(r => r.Price):N0} ₽";
+    private string AverageAreaText => Results.Count == 0 ? "—" : $"{Results.Average(r => r.Area):0.#} м²";
+    private string PopularDistrict => Results.Count == 0 ? "—" : Results
+        .GroupBy(r => r.District)
+        .OrderByDescending(g => g.Count())
+        .First().Key;
+    private string FilterToggleText => filtersVisible ? "Скрыть фильтры" : "Показать фильтры";
+    private string FiltersCardClass => filtersVisible ? "filters-card" : "filters-card hidden";
+    private string StatusText => IsLoading
+        ? "Загрузка..."
+        : pendingFilter
+            ? "Применяем фильтры..."
+            : isDebouncingFilter
+                ? "Ожидаем завершения ввода..."
+                : $"Найдено: {TotalResults}";
+    private int TotalPages => TotalResults == 0 ? 0 : (int)Math.Ceiling((double)TotalResults / Filter.PageSize);
+    private bool HasNextPage => TotalPages > 0 && Filter.Page < TotalPages;
+    private bool HasPreviousPage => Filter.Page > 1;
+    private string PaginationStatus => TotalResults == 0 ? "нет результатов" : $"страница {Filter.Page} из {TotalPages}";
+    private readonly HashSet<int> favoriteIds = new();
+    private const decimal DefaultRate = 9.5m;
+    private const int DefaultYears = 20;
+    private const decimal DefaultDownPaymentShare = 0.2m;
+
+    protected override void OnInitialized()
+    {
+        filterContext = new EditContext(Filter);
+        filterContext.EnableDataAnnotationsValidation();
+        filterContext.OnFieldChanged += OnFilterFieldChanged;
+    }
+
+    private Task SetViewMode(string mode)
+    {
+        viewMode = mode;
+        return Task.CompletedTask;
+    }
+
+    private string GetSegmentedClass(string mode)
+    {
+        return viewMode == mode ? "segment active" : "segment";
+    }
+
+    private void ToggleFilters()
+    {
+        filtersVisible = !filtersVisible;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            IsLoading = true;
+            Districts = (await RealEstateService.GetDistrictsAsync()).ToList();
+            Types = (await RealEstateService.GetTypesAsync()).ToList();
+
+            await LoadAsync();
+        }
+        catch (InvalidOperationException ex)
+        {
+            Notification = ex.Message;
+            NotificationStyle = "error";
+        }
+        catch (Exception ex)
+        {
+            Notification = DatabaseErrorMessages.Resolve(ex);
+            NotificationStyle = "error";
+        }
+        finally
+        {
+            if (IsLoading)
+            {
+                IsLoading = false;
+            }
+
+            if (!hasLoaded)
+            {
+                hasLoaded = true;
+            }
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        await LoadFavoritesAsync();
+        StateHasChanged();
+    }
+
+    private readonly HashSet<int> contactingItems = new();
+
+    private async Task ScheduleFilterAsync(ChangeEventArgs? _ = null)
+    {
+        filterDelayCts?.Cancel();
+        filterDelayCts?.Dispose();
+
+        filterDelayCts = new CancellationTokenSource();
+        var token = filterDelayCts.Token;
+        isDebouncingFilter = true;
+
+        try
+        {
+            await Task.Delay(FilterDelayMs, token);
+            await OnFilterAsync();
+        }
+        catch (TaskCanceledException)
+        {
+            // intentionally ignored
+        }
+    }
+
+    private void OnFilterFieldChanged(object? sender, FieldChangedEventArgs e)
+    {
+        Filter.Page = 1;
+        _ = ScheduleFilterAsync();
+    }
+
+    private async Task OnFilterAsync()
+    {
+        Filter.HasBalcony = balconyRequired ? true : null;
+        Filter.HasParking = parkingRequired ? true : null;
+        Filter.HasElevator = elevatorRequired ? true : null;
+
+        Filter.Page = 1;
+
+        if (filterContext is not null && !filterContext.Validate())
+        {
+            isDebouncingFilter = false;
+            return;
+        }
+
+        if (IsLoading)
+        {
+            pendingFilter = true;
+            return;
+        }
+
+        isDebouncingFilter = false;
+        await LoadAsync();
+    }
+
+    private Task ApplyQuickFilterAsync(int? rooms, bool? balcony, bool? parking, bool? elevator)
+    {
+        Filter.Rooms = rooms;
+        balconyRequired = balcony ?? false;
+        parkingRequired = parking ?? false;
+        elevatorRequired = elevator ?? false;
+        Filter.Page = 1;
+        return OnFilterAsync();
+    }
+
+    private Task ResetFiltersAsync()
+    {
+        Filter.DistrictId = null;
+        Filter.TypeId = null;
+        Filter.MinPrice = null;
+        Filter.MaxPrice = null;
+        Filter.MinArea = null;
+        Filter.MaxArea = null;
+        Filter.Rooms = null;
+        Filter.SortBy = "price";
+        Filter.SortDescending = false;
+        Filter.Page = 1;
+        Filter.PageSize = 20;
+        sortDirection = "asc";
+        balconyRequired = false;
+        parkingRequired = false;
+        elevatorRequired = false;
+
+        return LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        IsLoading = true;
+        Notification = null;
+        NotificationStyle = "info";
+        Results.Clear();
+        TotalResults = 0;
+
+        try
+        {
+            var data = await RealEstateService.SearchAsync(Filter);
+            Results.AddRange(data.Items);
+            TotalResults = data.TotalCount;
+            Filter.Page = data.Page;
+            Filter.PageSize = data.PageSize;
+            if (TotalPages > 0 && Filter.Page > TotalPages)
+            {
+                Filter.Page = TotalPages;
+                await LoadAsync();
+                return;
+            }
+        }
+        catch (InvalidOperationException ex)
+        {
+            Notification = ex.Message;
+            NotificationStyle = "error";
+        }
+        catch (Exception ex)
+        {
+            Notification = DatabaseErrorMessages.Resolve(ex);
+            NotificationStyle = "error";
+        }
+        finally
+        {
+            IsLoading = false;
+            hasLoaded = true;
+        }
+
+        if (pendingFilter)
+        {
+            pendingFilter = false;
+            await OnFilterAsync();
+        }
+    }
+
+    private async Task LoadFavoritesAsync()
+    {
+        try
+        {
+            favoriteIds.Clear();
+            var persisted = await FavoriteService.GetAsync();
+            foreach (var id in persisted)
+            {
+                favoriteIds.Add(id);
+            }
+        }
+        catch
+        {
+            Notification ??= "Не удалось восстановить избранное";
+            NotificationStyle = "error";
+        }
+    }
+
+    private async Task ContactAsync(RealEstateSummary item)
+    {
+        if (contactingItems.Contains(item.Id))
+        {
+            return;
+        }
+
+        contactingItems.Add(item.Id);
+
+        var state = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        if (state.User.Identity?.IsAuthenticated != true)
+        {
+            NavigationManager.NavigateTo("/login?returnUrl=/search");
+            contactingItems.Remove(item.Id);
+            return;
+        }
+
+        var userIdString = state.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(userIdString, out var userId))
+        {
+            Notification = "Не удалось определить пользователя";
+            NotificationStyle = "error";
+            contactingItems.Remove(item.Id);
+            return;
+        }
+
+        var role = state.User.FindFirst(ClaimTypes.Role)?.Value ?? "client";
+        if (role is not ("client" or "admin"))
+        {
+            Notification = "Только клиенты могут отправлять заявки";
+            NotificationStyle = "error";
+            contactingItems.Remove(item.Id);
+            return;
+        }
+
+        try
+        {
+            await InteractionService.CreateInteractionAsync(userId, item.AgentId, item.Id, "Заявка из каталога");
+            Notification = "Заявка отправлена. Контакты риелтора отображаются в личном кабинете.";
+            NotificationStyle = "success";
+        }
+        catch (Exception)
+        {
+            Notification = "Заявка уже существует или недоступна.";
+            NotificationStyle = "error";
+        }
+        finally
+        {
+            contactingItems.Remove(item.Id);
+        }
+    }
+
+    private Task OnSortChanged(ChangeEventArgs _)
+    {
+        Filter.Page = 1;
+        return LoadAsync();
+    }
+
+    private Task OnSortDirectionChanged(ChangeEventArgs args)
+    {
+        var value = args.Value?.ToString() ?? "asc";
+        sortDirection = value;
+        Filter.SortDescending = value == "desc";
+        Filter.Page = 1;
+        return LoadAsync();
+    }
+
+    private Task OnAmenitiesChangedAsync(ChangeEventArgs _)
+    {
+        return OnFilterAsync();
+    }
+
+    private Task PreviousPageAsync()
+    {
+        if (!HasPreviousPage)
+        {
+            return Task.CompletedTask;
+        }
+
+        Filter.Page -= 1;
+        return LoadAsync();
+    }
+
+    private Task NextPageAsync()
+    {
+        if (!HasNextPage)
+        {
+            return Task.CompletedTask;
+        }
+
+        Filter.Page += 1;
+        return LoadAsync();
+    }
+
+    private async Task ToggleFavoriteAsync(int id)
+    {
+        var added = await FavoriteService.ToggleAsync(id);
+        if (added)
+        {
+            favoriteIds.Add(id);
+        }
+        else
+        {
+            favoriteIds.Remove(id);
+        }
+
+        StateHasChanged();
+    }
+
+    private decimal CalculateMonthlyPayment(decimal price)
+    {
+        var principal = Math.Max(price * (1 - DefaultDownPaymentShare), 0);
+        var monthlyRate = DefaultRate / 12 / 100;
+        var months = DefaultYears * 12;
+        var factor = (decimal)Math.Pow(1 + (double)monthlyRate, months);
+        return monthlyRate == 0
+            ? principal / months
+            : principal * monthlyRate * factor / (factor - 1);
+    }
+
+    public void Dispose()
+    {
+        filterDelayCts?.Cancel();
+        filterDelayCts?.Dispose();
+        if (filterContext is not null)
+        {
+            filterContext.OnFieldChanged -= OnFilterFieldChanged;
+        }
+    }
+}

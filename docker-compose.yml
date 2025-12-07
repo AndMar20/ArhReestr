@@ -1,0 +1,13 @@
+services:
+  webapp:
+    hostname: arhreestr.ru
+    image: ${DOCKER_REGISTRY-}webapp
+    build:
+      context: .
+      dockerfile: WebApp/Dockerfile
+    environment:
+      - ASPNETCORE_URLS=http://+:8080;https://+:8081
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+

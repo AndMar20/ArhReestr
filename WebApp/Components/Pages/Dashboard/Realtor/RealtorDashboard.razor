@@ -1,0 +1,279 @@
+@page "/realtor"
+@using global::System.Security.Claims
+@attribute [Authorize(Policy = "RequireAgent")]
+@inject InteractionService InteractionService
+@inject RealEstateService RealEstateService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>Панель риелтора</PageTitle>
+
+<section class="hero-card">
+    <div class="section-header">
+        <div>
+            <h1 class="section-title">Панель риелтора</h1>
+            <p class="section-sub">Управляйте заявками клиентов и отслеживайте ход встреч.</p>
+        </div>
+        <div class="hero-actions">
+            <NavLink class="primary" href="/realtor/create">Добавить объект</NavLink>
+        </div>
+    </div>
+    <div class="stat-grid">
+        <div class="stat-card">
+            <h3>Всего обращений</h3>
+            <div class="number">@Interactions.Count</div>
+        </div>
+        <div class="stat-card">
+            <h3>Новые заявки</h3>
+            <div class="number">@NewRequests</div>
+        </div>
+        <div class="stat-card">
+            <h3>В работе</h3>
+            <div class="number">@InProgress</div>
+        </div>
+        <div class="stat-card">
+            <h3>Завершено</h3>
+            <div class="number">@Closed</div>
+        </div>
+    </div>
+</section>
+
+@if (!string.IsNullOrEmpty(Notification))
+{
+    <div class="alert @NotificationStyle">@Notification</div>
+}
+
+<div class="panel-stack">
+    <div class="panel">
+        <div class="section-header">
+            <h2>Взаимодействия с клиентами</h2>
+            <span class="small-text">@Interactions.Count записей</span>
+        </div>
+
+        @if (Interactions.Count == 0)
+        {
+            <p>Пока нет обращений.</p>
+        }
+        else
+        {
+            <div class="table-wrapper">
+                <table class="data-table stacked-table">
+                    <thead>
+                        <tr>
+                            <th>Клиент</th>
+                            <th>Объект</th>
+                            <th>Статус</th>
+                            <th>Обновлено</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var interaction in Interactions)
+                        {
+                            <tr class="@(SelectedInteraction?.Id == interaction.Id ? "selected" : string.Empty)">
+                                <td data-label="Клиент">@interaction.Client</td>
+                                <td data-label="Объект">@interaction.RealEstate</td>
+                                <td data-label="Статус">@interaction.Status</td>
+                                <td data-label="Обновлено">@interaction.UpdatedAt.ToString("g")</td>
+                                <td class="actions-row table-actions" data-label="Действия">
+                                    <button @onclick="() => SelectInteraction(interaction)">Изменить</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+
+        @if (SelectedInteraction is not null)
+        {
+            <div class="panel-section">
+                <EditForm Model="UpdateModel" OnValidSubmit="UpdateAsync" class="form-stack" FormName="interactionUpdateForm">
+                    <h3>Обновить взаимодействие #@SelectedInteraction.Id</h3>
+                    <label>Статус
+                        <InputSelect @bind-Value="UpdateModel.StatusId">
+                            @foreach (var status in Statuses)
+                            {
+                                <option value="@status.Id">@status.Name</option>
+                            }
+                        </InputSelect>
+                    </label>
+                    <label>Комментарий
+                        <InputTextArea @bind-Value="UpdateModel.Notes" rows="3" />
+                    </label>
+                    <button type="submit">Сохранить</button>
+                </EditForm>
+            </div>
+        }
+    </div>
+
+    <div class="panel">
+        <div class="section-header">
+            <div>
+                <h2>Мои объекты недвижимости</h2>
+                <p class="section-sub">Список добавленных объявлений для быстрого перехода к редактированию.</p>
+            </div>
+            <span class="small-text">@MyProperties.Count объектов</span>
+        </div>
+
+        @if (MyProperties.Count == 0)
+        {
+            <p>Вы ещё не добавили объекты. Создайте первое объявление через кнопку выше.</p>
+        }
+        else
+        {
+            <div class="table-wrapper">
+                <table class="data-table stacked-table">
+                    <thead>
+                        <tr>
+                            <th>Адрес</th>
+                            <th>Тип</th>
+                            <th>Цена</th>
+                            <th>Площадь</th>
+                            <th>Комнат</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var estate in MyProperties)
+                        {
+                            <tr>
+                                <td data-label="Адрес">@estate.Address</td>
+                                <td data-label="Тип">@estate.Type</td>
+                                <td data-label="Цена">@estate.Price.ToString("N0") ₽</td>
+                                <td data-label="Площадь">@estate.Area.ToString("N2") м²</td>
+                                <td data-label="Комнат">@estate.Rooms</td>
+                                <td class="actions-row table-actions" data-label="Действия">
+                                    <NavLink href="@($"/real-estate/{estate.Id}")" class="ghost">Открыть</NavLink>
+                                    <NavLink href="@($"/real-estate/{estate.Id}/edit")" class="primary">Редактировать</NavLink>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private readonly List<InteractionSummary> Interactions = new();
+    private readonly List<DataLayer.Models.InteractionStatus> Statuses = new();
+    private readonly InteractionUpdateRequest UpdateModel = new();
+    private readonly List<RealEstateSummary> MyProperties = new();
+    private InteractionSummary? SelectedInteraction;
+    private int _userId;
+    private string? Notification;
+    private string NotificationStyle { get; set; } = "info";
+    private int NewRequests => CountByKeyword("ожид" , "заявка", "нов");
+    private int InProgress => CountByKeyword("работ", "встреч");
+    private int Closed => CountByKeyword("закры", "заверш");
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var state = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var idValue = state.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            _userId = int.TryParse(idValue, out var parsed) ? parsed : 0;
+
+            if (_userId <= 0)
+            {
+                Notification = "Не удалось определить пользователя. Перезайдите в систему.";
+                NotificationStyle = "error";
+                return;
+            }
+
+            var statuses = await InteractionService.GetStatusesAsync();
+            Statuses.AddRange(statuses);
+            await LoadAsync();
+            await LoadPropertiesAsync();
+        }
+        catch (InvalidOperationException ex)
+        {
+            Notification = ex.Message;
+            NotificationStyle = "error";
+        }
+        catch (Exception ex)
+        {
+            Notification = DatabaseErrorMessages.Resolve(ex);
+            NotificationStyle = "error";
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            var data = await InteractionService.GetAgentInteractionsAsync(_userId);
+            Interactions.Clear();
+            Interactions.AddRange(data);
+        }
+        catch (InvalidOperationException ex)
+        {
+            Notification = ex.Message;
+            NotificationStyle = "error";
+        }
+        catch (Exception ex)
+        {
+            Notification = DatabaseErrorMessages.Resolve(ex);
+            NotificationStyle = "error";
+        }
+    }
+
+    private async Task LoadPropertiesAsync()
+    {
+        if (_userId <= 0)
+        {
+            return;
+        }
+
+        try
+        {
+            var estates = await RealEstateService.GetByAgentAsync(_userId);
+            MyProperties.Clear();
+            MyProperties.AddRange(estates);
+        }
+        catch (InvalidOperationException ex)
+        {
+            Notification = ex.Message;
+            NotificationStyle = "error";
+        }
+        catch (Exception ex)
+        {
+            Notification = DatabaseErrorMessages.Resolve(ex);
+            NotificationStyle = "error";
+        }
+    }
+
+    private int CountByKeyword(params string[] keywords)
+    {
+        return Interactions.Count(i => keywords.Any(k => i.Status.Contains(k, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private void SelectInteraction(InteractionSummary summary)
+    {
+        SelectedInteraction = summary;
+        UpdateModel.InteractionId = summary.Id;
+        UpdateModel.StatusId = summary.StatusId;
+        UpdateModel.Notes = summary.Notes;
+        Notification = null;
+        NotificationStyle = "info";
+    }
+
+    private async Task UpdateAsync()
+    {
+        try
+        {
+            await InteractionService.UpdateStatusAsync(UpdateModel, _userId, false);
+            Notification = "Статус обновлён";
+            NotificationStyle = "success";
+            await LoadAsync();
+            SelectedInteraction = Interactions.FirstOrDefault(i => i.Id == UpdateModel.InteractionId);
+        }
+        catch (Exception ex)
+        {
+            Notification = ex.Message;
+            NotificationStyle = "error";
+        }
+    }
+}

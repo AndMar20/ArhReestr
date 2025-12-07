@@ -1,0 +1,90 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+@using Microsoft.AspNetCore.Components.Routing
+
+<PageTitle>АрхРеестр</PageTitle>
+
+<div class="page">
+    <header class="top-bar">
+        <div class="container nav-inner">
+            <div class="nav-header">
+                <div class="brand">
+                    <img class="brand-logo" height="50" width="100" src="Images/Logo/logo.png" alt="Логотип АрхРеестр" />
+                </div>
+                <button
+                    type="button"
+                    class="nav-toggle"
+                    aria-label="Открыть меню"
+                    aria-controls="main-nav"
+                    aria-expanded="@isMenuOpen"
+                    @onclick="ToggleMenu">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+            <div id="main-nav" class="@NavMenuClass">
+                <nav>
+                    <NavLink href="/" Match="NavLinkMatch.All" @onclick="CloseMenu">Каталог объектов</NavLink>
+                    <NavLink href="/favorites" Match="NavLinkMatch.Prefix" @onclick="CloseMenu">Избранное</NavLink>
+                    <AuthorizeView Roles="admin">
+                        <Authorized>
+                            <NavLink href="/admin" Match="NavLinkMatch.Prefix" @onclick="CloseMenu">Кабинет администратора</NavLink>
+                        </Authorized>
+                    </AuthorizeView>
+                    <AuthorizeView Roles="admin,agent">
+                        <Authorized>
+                            <NavLink href="/realtor" Match="NavLinkMatch.Prefix" @onclick="CloseMenu">Кабинет риелтора</NavLink>
+                        </Authorized>
+                    </AuthorizeView>
+                </nav>
+                <LoginDisplay />
+            </div>
+        </div>
+    </header>
+    <main>
+        <div class="container">
+            @Body
+        </div>
+    </main>
+</div>
+
+<div id="blazor-error-ui">
+    Произошла ошибка. <a href="" class="reload">Перезагрузить</a>
+    <a class="dismiss">🗙</a>
+</div>
+
+@code {
+    [Inject]
+    private NavigationManager NavigationManager { get; set; } = default!;
+
+    private bool isMenuOpen;
+
+    private string NavMenuClass => isMenuOpen ? "nav-menu open" : "nav-menu";
+
+    protected override void OnInitialized()
+    {
+        NavigationManager.LocationChanged += OnLocationChanged;
+    }
+
+    private void ToggleMenu()
+    {
+        isMenuOpen = !isMenuOpen;
+    }
+
+    private void CloseMenu()
+    {
+        isMenuOpen = false;
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        isMenuOpen = false;
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        NavigationManager.LocationChanged -= OnLocationChanged;
+    }
+}

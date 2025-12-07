@@ -1,0 +1,150 @@
+@page "/favorites"
+@inject FavoriteService FavoriteService
+@inject RealEstateService RealEstateService
+@using global::System.Linq
+
+<PageTitle>Избранное</PageTitle>
+
+<section class="hero-card">
+    <div class="section-header hero-header">
+        <div>
+            <h1 class="section-title">Избранные объекты</h1>
+            <p class="section-sub">Сохраняйте и сравнивайте интересные предложения из каталога.</p>
+        </div>
+        <div class="badge">Локально · без учётной записи</div>
+    </div>
+</section>
+
+@if (!string.IsNullOrEmpty(Notification))
+{
+    <div class="alert @NotificationStyle">@Notification</div>
+}
+
+@if (IsLoading)
+{
+    <p>Загрузка избранного...</p>
+}
+else if (favorites.Count == 0)
+{
+    <div class="panel" style="margin-top:1.5rem;">
+        <div class="section-header">
+            <div>
+                <h2>Пока пусто</h2>
+                <p class="section-sub">Добавляйте объекты из каталога и возвращайтесь к ним здесь.</p>
+            </div>
+        </div>
+        <a class="primary" href="/search">Перейти в каталог</a>
+    </div>
+}
+else
+{
+    <div class="panel" style="margin-top:1.5rem;">
+        <div class="section-header">
+            <div>
+                <h2>Сохранено @favorites.Count объектов</h2>
+                <p class="section-sub">Эти данные лежат в браузере и доступны только вам.</p>
+            </div>
+        </div>
+        <div class="cards">
+            @foreach (var item in favorites)
+            {
+                <article class="card">
+                    @if (!string.IsNullOrEmpty(item.PrimaryPhoto))
+                    {
+                        <img src="@item.PrimaryPhoto" alt="Фото" />
+                    }
+                    <div class="meta-line">
+                        <span class="tag-pill primary">@item.Type</span>
+                        <span class="tag-pill">@item.District</span>
+                    </div>
+                    <h2>@item.Address</h2>
+                    <div class="meta-line">
+                        <span>@item.Rooms-комн. · @item.Area м²</span>
+                        <span>Этаж @item.Floor/@item.TotalFloors</span>
+                    </div>
+                    <p class="price">@item.Price.ToString("N0") ₽</p>
+                    <div class="meta-line">
+                        <span class="small-text">Риелтор: @item.Agent</span>
+                        <div class="tags">
+                            @if (item.HasBalcony)
+                            {
+                                <span class="tag-pill">Балкон</span>
+                            }
+                            @if (item.HasParking)
+                            {
+                                <span class="tag-pill">Парковка</span>
+                            }
+                            @if (item.HasElevator)
+                            {
+                                <span class="tag-pill">Лифт</span>
+                            }
+                        </div>
+                    </div>
+                    <div class="meta-line" style="margin-top:0.5rem;">
+                        <a class="primary ghost" href="/real-estate/@item.Id">Открыть карточку</a>
+                        <button class="ghost" @onclick="() => RemoveFavoriteAsync(item.Id)">Убрать</button>
+                    </div>
+                </article>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private readonly List<int> favoriteIds = new();
+    private readonly List<RealEstateSummary> favorites = new();
+    private bool IsLoading;
+    private string? Notification;
+    private string NotificationStyle { get; set; } = "info";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        IsLoading = true;
+        Notification = null;
+        favorites.Clear();
+        favoriteIds.Clear();
+
+        try
+        {
+            var persisted = await FavoriteService.GetAsync();
+            favoriteIds.AddRange(persisted);
+
+            if (favoriteIds.Count > 0)
+            {
+                var summaries = await RealEstateService.GetSummariesByIdsAsync(favoriteIds);
+                favorites.AddRange(summaries.OrderBy(s => s.Address));
+            }
+        }
+        catch (InvalidOperationException ex)
+        {
+            Notification = ex.Message;
+            NotificationStyle = "error";
+        }
+        catch (Exception ex)
+        {
+            Notification = DatabaseErrorMessages.Resolve(ex);
+            NotificationStyle = "error";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async Task RemoveFavoriteAsync(int id)
+    {
+        var removed = await FavoriteService.RemoveAsync(id);
+        if (!removed)
+        {
+            return;
+        }
+
+        favoriteIds.Remove(id);
+        favorites.RemoveAll(f => f.Id == id);
+    }
+}

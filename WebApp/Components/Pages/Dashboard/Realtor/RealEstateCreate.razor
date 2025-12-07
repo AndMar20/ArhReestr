@@ -1,0 +1,309 @@
+@page "/realtor/create"
+@using global::System.Security.Claims
+@using DataLayer.Models
+@attribute [Authorize(Policy = "RequireAgent")]
+@inject RealEstateService RealEstateService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager NavigationManager
+
+<PageTitle>Новый объект</PageTitle>
+
+<section class="hero-card">
+    <div class="section-header">
+        <div>
+            <h1 class="section-title">Добавить объект недвижимости</h1>
+            <p class="section-sub">Укажите адрес дома и параметры квартиры, чтобы опубликовать в каталоге.</p>
+            <div class="badges">
+                <span class="tag-pill primary">Кабинет риелтора</span>
+                <span class="tag-pill">Доступ: риелтор или администратор</span>
+            </div>
+        </div>
+        <div class="hero-actions">
+            <button type="button" class="ghost" @onclick="GoToDashboard">Вернуться в кабинет</button>
+        </div>
+    </div>
+</section>
+
+@if (!string.IsNullOrEmpty(Notification))
+{
+    <div class="alert @NotificationStyle">@Notification</div>
+}
+
+<div class="panel">
+    <EditForm Model="Model" OnValidSubmit="CreateAsync" class="form-stack" FormName="realEstateCreateForm">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+        <div class="two-col">
+            <div class="form-stack">
+                <h2>Адрес и дом</h2>
+                <label>Район
+                    <InputSelect @bind-Value="Model.DistrictId">
+                        <option value="">Выберите район</option>
+                        @foreach (var district in Districts)
+                        {
+                            <option value="@district.Id">@district.Name</option>
+                        }
+                    </InputSelect>
+                    <ValidationMessage For="@(() => Model.DistrictId)" />
+                </label>
+                <label>Улица
+                    <InputSelect @bind-Value="Model.StreetId">
+                        <option value="">Выберите улицу</option>
+                        @foreach (var street in Streets)
+                        {
+                            <option value="@street.Id">@street.Name</option>
+                        }
+                    </InputSelect>
+                    <ValidationMessage For="@(() => Model.StreetId)" />
+                </label>
+                <div class="inline-field">
+                    <label>Новая улица (если нет в списке)
+                        <InputText @bind-Value="Model.NewStreetName" placeholder="Например, Ленина" />
+                    </label>
+                    <button type="button" class="ghost" @onclick="AddStreetAsync" disabled="@(IsSaving || IsStreetSaving)">
+                        @(IsStreetSaving ? "Сохранение..." : "Добавить улицу")
+                    </button>
+                </div>
+                <label>Номер дома
+                    <InputText @bind-Value="Model.HouseNumber" />
+                    <ValidationMessage For="@(() => Model.HouseNumber)" />
+                </label>
+                <div class="grid-2">
+                    <label>Этажность дома
+                        <InputNumber @bind-Value="Model.TotalFloors" min="1" />
+                        <ValidationMessage For="@(() => Model.TotalFloors)" />
+                    </label>
+                    <label>Год постройки
+                        <InputNumber @bind-Value="Model.BuildingYear" min="1800" max="2100" />
+                        <ValidationMessage For="@(() => Model.BuildingYear)" />
+                    </label>
+                </div>
+                <div class="grid-2">
+                    <label>Широта
+                        <InputNumber @bind-Value="Model.Latitude" step="0.000001" />
+                        <ValidationMessage For="@(() => Model.Latitude)" />
+                    </label>
+                    <label>Долгота
+                        <InputNumber @bind-Value="Model.Longitude" step="0.000001" />
+                        <ValidationMessage For="@(() => Model.Longitude)" />
+                    </label>
+                </div>
+                <div class="checkbox-row">
+                    <label class="checkbox-inline">
+                        <InputCheckbox class="checkbox-control" @bind-Value="Model.HasParking" />
+                        <span>Парковка</span>
+                    </label>
+                    <label class="checkbox-inline">
+                        <InputCheckbox class="checkbox-control" @bind-Value="Model.HasElevator" />
+                        <span>Лифт</span>
+                    </label>
+                    <label class="checkbox-inline">
+                        <InputCheckbox class="checkbox-control" @bind-Value="Model.HasBalcony" />
+                        <span>Балкон</span>
+                    </label>
+                </div>
+            </div>
+            <div class="form-stack">
+                <h2>Параметры объекта</h2>
+                <label>Тип недвижимости
+                    <InputSelect @bind-Value="Model.TypeId">
+                        <option value="">Выберите тип</option>
+                        @foreach (var type in Types)
+                        {
+                            <option value="@type.Id">@type.Name</option>
+                        }
+                    </InputSelect>
+                    <ValidationMessage For="@(() => Model.TypeId)" />
+                </label>
+                <div class="grid-2">
+                    <label>Цена, ₽
+                        <InputNumber @bind-Value="Model.Price" min="1" step="1" />
+                        <ValidationMessage For="@(() => Model.Price)" />
+                    </label>
+                    <label>Площадь, м²
+                        <InputNumber @bind-Value="Model.Area" min="1" step="1" />
+                        <ValidationMessage For="@(() => Model.Area)" />
+                    </label>
+                </div>
+                <div class="grid-2">
+                    <label>Комнат
+                        <InputNumber @bind-Value="Model.Rooms" min="1" step="1" />
+                        <ValidationMessage For="@(() => Model.Rooms)" />
+                    </label>
+                    <label>Этаж
+                        <InputNumber @bind-Value="Model.Floor" min="1" step="1" />
+                        <ValidationMessage For="@(() => Model.Floor)" />
+                    </label>
+                </div>
+                <label>Описание
+                    <InputTextArea @bind-Value="Model.Description" rows="4" />
+                    <ValidationMessage For="@(() => Model.Description)" />
+                </label>
+                <div class="form-stack">
+                    <label>Фотографии
+                        <InputFile multiple OnChange="OnFilesSelected" accept="image/*" />
+                    </label>
+                    @if (UploadedPhotos.Count > 0)
+                    {
+                        <ul class="small-text">
+                            @foreach (var photo in UploadedPhotos)
+                            {
+                                <li>@photo.Name (@(Math.Round(photo.Size / 1024m, 1)) КБ)</li>
+                            }
+                        </ul>
+                    }
+                    <p class="small-text">Поддерживаются JPG, PNG, GIF до 5 МБ за файл.</p>
+                </div>
+            </div>
+        </div>
+        <div class="actions-row">
+            <button type="submit" class="primary" disabled="@IsSaving">Создать</button>
+            @if (CreatedId is not null)
+            {
+                <span class="small-text">Сохранено как #@CreatedId</span>
+            }
+        </div>
+    </EditForm>
+</div>
+
+@code {
+    private readonly List<District> Districts = new();
+    private readonly List<Street> Streets = new();
+    private readonly List<RealEstateType> Types = new();
+    private RealEstateCreateModel Model { get; set; } = new();
+    private int _agentId;
+    private bool _isAdmin;
+    private bool IsSaving;
+    private string? Notification;
+    private string NotificationStyle = "info";
+    private bool IsStreetSaving;
+    private int? CreatedId;
+    private List<IBrowserFile> UploadedPhotos { get; set; } = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var state = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var idValue = state.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            _agentId = int.TryParse(idValue, out var parsed) ? parsed : 0;
+            _isAdmin = state.User.IsInRole("admin");
+
+            var districts = await RealEstateService.GetDistrictsAsync();
+            var streets = await RealEstateService.GetStreetsAsync();
+            var types = await RealEstateService.GetTypesAsync();
+
+            Districts.AddRange(districts);
+            Streets.AddRange(streets);
+            Types.AddRange(types);
+        }
+        catch (InvalidOperationException ex)
+        {
+            Notification = ex.Message;
+            NotificationStyle = "error";
+        }
+        catch (Exception ex)
+        {
+            Notification = DatabaseErrorMessages.Resolve(ex);
+            NotificationStyle = "error";
+        }
+    }
+
+    private async Task CreateAsync()
+    {
+        if (IsSaving)
+        {
+            return;
+        }
+
+        try
+        {
+            IsSaving = true;
+            Notification = null;
+            NotificationStyle = "info";
+            CreatedId = null;
+
+            var id = await RealEstateService.CreateAsync(Model, _agentId);
+            if (UploadedPhotos.Count > 0)
+            {
+                await RealEstateService.SavePhotosAsync(id, UploadedPhotos, _agentId, _isAdmin);
+                UploadedPhotos.Clear();
+            }
+            CreatedId = id;
+            Notification = "Объект успешно сохранён";
+            NotificationStyle = "success";
+
+            Model = new RealEstateCreateModel
+            {
+                DistrictId = Model.DistrictId,
+                StreetId = Model.StreetId,
+                TotalFloors = Model.TotalFloors,
+                HasParking = Model.HasParking,
+                HasElevator = Model.HasElevator
+            };
+        }
+        catch (Exception ex)
+        {
+            Notification = DatabaseErrorMessages.Resolve(ex);
+            NotificationStyle = "error";
+        }
+        finally
+        {
+            IsSaving = false;
+        }
+    }
+
+    private async Task AddStreetAsync()
+    {
+        if (IsStreetSaving)
+        {
+            return;
+        }
+
+        try
+        {
+            Notification = null;
+            NotificationStyle = "info";
+
+            if (!Model.DistrictId.HasValue)
+            {
+                Notification = "Сначала выберите район";
+                NotificationStyle = "error";
+                return;
+            }
+
+            IsStreetSaving = true;
+            var street = await RealEstateService.CreateStreetAsync(Model.NewStreetName ?? string.Empty);
+
+            if (!Streets.Any(s => s.Id == street.Id))
+            {
+                Streets.Add(street);
+                Streets.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.Ordinal));
+            }
+
+            Model.StreetId = street.Id;
+            Model.NewStreetName = string.Empty;
+            Notification = $"Улица «{street.Name}» добавлена";
+            NotificationStyle = "success";
+        }
+        catch (Exception ex)
+        {
+            Notification = DatabaseErrorMessages.Resolve(ex);
+            NotificationStyle = "error";
+        }
+        finally
+        {
+            IsStreetSaving = false;
+        }
+    }
+
+    private void OnFilesSelected(InputFileChangeEventArgs e)
+    {
+        UploadedPhotos = e.GetMultipleFiles(10).ToList();
+    }
+
+    private void GoToDashboard()
+    {
+        NavigationManager.NavigateTo("/realtor");
+    }
+}

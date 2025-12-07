@@ -1,0 +1,63 @@
+@page "/login"
+@inject NavigationManager NavigationManager
+
+<PageTitle>Вход</PageTitle>
+
+<div class="auth-page">
+    <div class="auth-card">
+        <div class="auth-logo">AR</div>
+        <h1 class="auth-title">Вход в систему</h1>
+        <p class="auth-sub">Введите свои учетные данные для доступа.</p>
+
+        @if (!string.IsNullOrEmpty(Error))
+        {
+            <div class="alert">@Error</div>
+        }
+
+        <form class="form-stack" method="post" action="@LoginAction">
+            <AntiforgeryToken />
+            <label>Email
+                <input name="Email" @bind="Model.Email" placeholder="you@example.com" type="email" required />
+            </label>
+            <label>Пароль
+                <input name="Password" @bind="Model.Password" type="password" placeholder="••••••••" required />
+            </label>
+            <label class="checkbox-inline">
+                <input name="RememberMe" type="checkbox" value="true" @bind="Model.RememberMe" />
+                <span>Запомнить меня</span>
+            </label>
+            @if (!string.IsNullOrWhiteSpace(ReturnUrl))
+            {
+                <input type="hidden" name="returnUrl" value="@ReturnUrl" />
+            }
+            <button type="submit">Войти</button>
+        </form>
+
+        <NavLink href="/register" class="footer-link">Зарегистрироваться</NavLink>
+    </div>
+</div>
+
+@code {
+    private readonly LoginInputModel Model = new();
+    private string? Error;
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    public string? ReturnUrl { get; set; }
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "error")]
+    public string? ErrorCode { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        Error = ErrorCode switch
+        {
+            "invalid" => "Неверный email или пароль",
+            "missing" => "Укажите email и пароль",
+            _ => null
+        };
+    }
+
+    private string LoginAction => string.IsNullOrWhiteSpace(ReturnUrl)
+        ? "/login"
+        : $"/login?returnUrl={Uri.EscapeDataString(ReturnUrl)}";
+}

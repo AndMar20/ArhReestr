@@ -1,0 +1,318 @@
+@page "/real-estate/{Id:int}"
+@using DataLayer
+@using DataLayer.Models
+@using global::System.Globalization
+@using global::System.Security.Claims
+@inject RealEstateService RealEstateService
+@inject FavoriteService FavoriteService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>Карточка объекта</PageTitle>
+
+@if (isLoading)
+{
+    <p>Загрузка...</p>
+}
+else if (!string.IsNullOrEmpty(error))
+{
+    <div class="alert error">@error</div>
+}
+else if (item is null)
+{
+    <p>Объект не найден.</p>
+}
+else
+{
+    <section class="hero-card">
+        <div class="section-header">
+            <div>
+                <p class="eyebrow">Объект недвижимости</p>
+                <h1 class="section-title">@address</h1>
+                <p class="section-sub">@item.Type?.Name · @item.House?.District?.Name</p>
+                <div class="meta-line">
+                    @if (item.House?.BuildingYear is not null)
+                    {
+                        <span class="tag-pill">Дом @item.House.BuildingYear г.</span>
+                    }
+                    <span class="tag-pill">Этаж @item.Floor/@item.House?.TotalFloors</span>
+                    <span class="tag-pill">@item.Area м²</span>
+                </div>
+            </div>
+            <div class="hero-actions">
+                <div class="price">@item.Price.ToString("N0") ₽</div>
+                <div class="meta-line" style="justify-content: flex-end;">
+                    <span class="tag-pill">@item.Rooms-комн.</span>
+                    <span class="tag-pill">Балкон @(item.HasBalcony ? "есть" : "нет")</span>
+                    <span class="tag-pill">Парковка @(item.House?.HasParking == true ? "есть" : "нет")</span>
+                    <span class="tag-pill">Лифт @(item.House?.HasElevator == true ? "есть" : "нет")</span>
+                </div>
+                <div class="card-actions" style="margin-top: 0.5rem;">
+                    <button class="icon-button favorite-button @(isFavorite ? "active" : string.Empty)" @onclick="ToggleFavoriteAsync">
+                        <span aria-hidden="true">★</span>
+                        <span class="sr-only">@(isFavorite ? "Убрать из избранного" : "Добавить в избранное")</span>
+                    </button>
+                    <a class="ghost" href="/search">Вернуться к каталогу</a>
+                    @if (canEdit)
+                    {
+                        <a class="ghost" href="/real-estate/@item.Id/edit">Редактировать</a>
+                    }
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="detail-grid">
+        <div class="panel">
+            <div class="section-header">
+                <h2>Фотографии</h2>
+                <span class="small-text">@((item.Photos?.Count ?? 0)) снимков</span>
+            </div>
+            @if (activePhotos.Count > 0)
+            {
+                <div class="photo-grid">
+                    @foreach (var photo in activePhotos)
+                    {
+                        <a href="@photo.FilePath" target="_blank" rel="noopener noreferrer">
+                            <img src="@photo.FilePath" alt="Фото объекта" />
+                        </a>
+                    }
+                </div>
+            }
+            else
+            {
+                <p class="small-text">Изображения не загружены.</p>
+            }
+        </div>
+
+        <div class="panel">
+            <div class="section-header">
+                <h2>Характеристики</h2>
+                <span class="small-text">Адрес и инфраструктура</span>
+            </div>
+            @if (!string.IsNullOrWhiteSpace(item.Description))
+            {
+                <div class="description-block">
+                    <h3>Описание</h3>
+                    <p>@item.Description</p>
+                </div>
+            }
+            <ul class="properties">
+                <li><span>Район</span><strong>@item.House?.District?.Name</strong></li>
+                <li><span>Адрес</span><strong>@address</strong></li>
+                <li><span>Площадь</span><strong>@item.Area м²</strong></li>
+                <li><span>Комнаты</span><strong>@item.Rooms</strong></li>
+                <li><span>Этаж</span><strong>@item.Floor / @item.House?.TotalFloors</strong></li>
+                <li><span>Парковка</span><strong>@(item.House?.HasParking == true ? "Есть" : "Нет")</strong></li>
+                <li><span>Лифт</span><strong>@(item.House?.HasElevator == true ? "Есть" : "Нет")</strong></li>
+                <li><span>Балкон</span><strong>@(item.HasBalcony ? "Есть" : "Нет")</strong></li>
+            </ul>
+        </div>
+
+        <div class="panel">
+            <div class="section-header">
+                <h2>Калькулятор ипотеки</h2>
+                <span class="small-text">Черновой расчёт для оценки платежа</span>
+            </div>
+            <div class="calculator">
+                <label>Стоимость, ₽
+                    <InputNumber @bind-Value="PriceValue" step="50000" />
+                </label>
+                <label>Первоначальный взнос, ₽
+                    <InputNumber @bind-Value="DownPaymentValue" step="50000" />
+                </label>
+                <label>Ставка, % годовых
+                    <InputNumber @bind-Value="RateValue" step="0.1m" />
+                </label>
+                <label>Срок, лет
+                    <InputNumber @bind-Value="YearsValue" step="1" />
+                </label>
+                <div class="calc-result">
+                    Ежемесячно: <strong>@Math.Round(monthlyPayment).ToString("N0") ₽</strong>
+                </div>
+                <p class="small-text">Расчёт аннуитетный, без учёта страховок и комиссий.</p>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="section-header">
+                <h2>Карта</h2>
+                <span class="small-text">По координатам дома</span>
+            </div>
+            @if (item.House?.Latitude is decimal lat && item.House?.Longitude is decimal lng)
+            {
+                <div class="map-wrapper">
+                    <iframe title="Карта" src="@BuildMapUrl(lat, lng)" loading="lazy"></iframe>
+                </div>
+                <a class="ghost" href="@BuildExternalMapLink(lat, lng)" target="_blank">Открыть в отдельном окне</a>
+            }
+            else
+            {
+                <div class="map-fallback">Координаты дома не указаны.</div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private DataLayer.Models.RealEstate? item;
+    private bool isFavorite;
+    private bool isLoading;
+    private string? error;
+    private string address = string.Empty;
+    private List<RealEstatePhoto> activePhotos = new();
+    private decimal price;
+    private decimal downPayment;
+    private decimal rate = 9.5m;
+    private int years = 20;
+    private decimal monthlyPayment;
+    private bool favoriteStatusPending;
+    private bool canEdit;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if ((firstRender || favoriteStatusPending) && item is not null)
+        {
+            favoriteStatusPending = false;
+
+            try
+            {
+                isFavorite = await FavoriteService.IsFavoriteAsync(Id);
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                error ??= DatabaseErrorMessages.Resolve(ex);
+            }
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            isLoading = true;
+            error = null;
+            item = await RealEstateService.GetDetailsAsync(Id);
+            favoriteStatusPending = item is not null;
+
+            if (item is not null)
+            {
+                address = AddressFormatter.Format(item.House);
+                price = item.Price;
+                downPayment = item.Price * 0.2m;
+                activePhotos = item.Photos?.Where(p => p.DeletedAt == null).ToList() ?? new();
+                await EvaluateEditPermissionsAsync(item);
+                Recalculate();
+            }
+        }
+        catch (InvalidOperationException ex)
+        {
+            error = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            error = DatabaseErrorMessages.Resolve(ex);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task ToggleFavoriteAsync()
+    {
+        var added = await FavoriteService.ToggleAsync(Id);
+        isFavorite = added;
+    }
+
+    private async Task EvaluateEditPermissionsAsync(DataLayer.Models.RealEstate entity)
+    {
+        var state = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = state.User;
+
+        if (user.Identity?.IsAuthenticated != true)
+        {
+            canEdit = false;
+            return;
+        }
+
+        var idValue = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var userId = int.TryParse(idValue, out var parsed) ? parsed : 0;
+        var isAdmin = user.IsInRole("admin");
+
+        canEdit = isAdmin || (userId > 0 && entity.AgentId == userId);
+    }
+
+    private void Recalculate()
+    {
+        var principal = Math.Max(price - downPayment, 0);
+        var monthlyRate = rate / 12 / 100;
+        var months = years * 12;
+        var factor = (decimal)Math.Pow(1 + (double)monthlyRate, months);
+        monthlyPayment = monthlyRate == 0
+            ? months == 0 ? 0 : principal / months
+            : principal * monthlyRate * factor / (factor - 1);
+    }
+
+    private string BuildMapUrl(decimal lat, decimal lng)
+    {
+        var latitude = lat.ToString(CultureInfo.InvariantCulture);
+        var longitude = lng.ToString(CultureInfo.InvariantCulture);
+        return $"https://www.openstreetmap.org/export/embed.html?layer=mapnik&marker={latitude}%2C{longitude}";
+    }
+
+    private string BuildExternalMapLink(decimal lat, decimal lng)
+    {
+        var latitude = lat.ToString(CultureInfo.InvariantCulture);
+        var longitude = lng.ToString(CultureInfo.InvariantCulture);
+        return $"https://www.openstreetmap.org/?mlat={latitude}&mlon={longitude}#map=17/{latitude}/{longitude}";
+    }
+
+    private decimal PriceValue
+    {
+        get => price;
+        set
+        {
+            price = Math.Max(value, 0);
+            Recalculate();
+        }
+    }
+
+    private decimal DownPaymentValue
+    {
+        get => downPayment;
+        set
+        {
+            downPayment = Math.Max(value, 0);
+            Recalculate();
+        }
+    }
+
+    private decimal RateValue
+    {
+        get => rate;
+        set
+        {
+            rate = Math.Max(value, 0);
+            Recalculate();
+        }
+    }
+
+    private int YearsValue
+    {
+        get => years;
+        set
+        {
+            years = Math.Max(value, 1);
+            Recalculate();
+        }
+    }
+}
