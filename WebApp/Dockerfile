@@ -4,14 +4,14 @@ EXPOSE 8080
 EXPOSE 8081
 
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+
+ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 
-# ARG HTTP_PROXY
-# ARG HTTPS_PROXY
-# ARG NO_PROXY
-# ENV http_proxy=${HTTP_PROXY} \
-#     https_proxy=${HTTPS_PROXY} \
-#     no_proxy=${NO_PROXY}
+COPY ["WebApp/WebApp.csproj", "WebApp/"]
+COPY ["DataLayer/DataLayer.csproj", "DataLayer/"]
+
+COPY offline-packages/ /offline-packages/
 
 ENV NUGET_HTTP_TIMEOUT=600 \
     NUGET_DOWNLOAD_TIMEOUT=600 \
@@ -19,20 +19,22 @@ ENV NUGET_HTTP_TIMEOUT=600 \
     NUGET_ENHANCED_HTTP_RETRY_COUNT=6 \
     NUGET_CERT_REVOCATION_MODE=offline
 
-COPY WebApp/WebApp.csproj WebApp/
-COPY DataLayer/DataLayer.csproj DataLayer/
-
-RUN dotnet restore WebApp/WebApp.csproj \
+RUN dotnet restore "./WebApp/WebApp.csproj" \
+    --source /offline-packages \
     --disable-parallel \
-    --source https://api.nuget.org/v3/index.json
+    --ignore-failed-sources
 
 COPY . .
-WORKDIR /src/WebApp
 
-RUN dotnet publish WebApp.csproj -c Release -o /app/publish /p:UseAppHost=false
+WORKDIR "/src/WebApp"
+
+RUN dotnet build "./WebApp.csproj" -c $BUILD_CONFIGURATION -o /app/build
+
+FROM build AS publish
+ARG BUILD_CONFIGURATION=Release
+RUN dotnet publish "./WebApp.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
 
 FROM base AS final
 WORKDIR /app
-COPY --from=build /app/publish .
-
+COPY --from=publish /app/publish .
 ENTRYPOINT ["dotnet", "WebApp.dll"]
