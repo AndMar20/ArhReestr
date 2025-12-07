@@ -20,7 +20,6 @@ ENV NUGET_HTTP_TIMEOUT=600 \
 # Restore only the projects we need for the web application first
 COPY WebApp/WebApp.csproj WebApp/
 COPY DataLayer/DataLayer.csproj DataLayer/
-RUN dotnet restore WebApp/WebApp.csproj
 # Use conservative restore settings to reduce timeout risk in CI/docker builds.
 RUN dotnet restore WebApp/WebApp.csproj --disable-parallel --ignore-failed-sources
 
