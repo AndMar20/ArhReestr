@@ -23,8 +23,6 @@ COPY . .
 
 WORKDIR "/src/WebApp"
 
-RUN dotnet build "./WebApp.csproj" -c $BUILD_CONFIGURATION -o /app/build
-
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
 RUN dotnet publish "./WebApp.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
