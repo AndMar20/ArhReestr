@@ -264,6 +264,8 @@ else
 
     private string BuildMapUrl(decimal lat, decimal lng)
     {
+        const decimal padding = 0.01m;
+
         var latitude = lat.ToString(CultureInfo.InvariantCulture);
         var longitude = lng.ToString(CultureInfo.InvariantCulture);
 

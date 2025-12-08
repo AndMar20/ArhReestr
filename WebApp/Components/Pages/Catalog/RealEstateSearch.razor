@@ -614,17 +614,28 @@ else
 
     private async Task ToggleFavoriteAsync(int id)
     {
-        var added = await FavoriteService.ToggleAsync(id);
-        if (added)
+private async Task ToggleFavoriteAsync(int id)
+    {
+        try
         {
-            favoriteIds.Add(id);
+            var added = await FavoriteService.ToggleAsync(id);
+            if (added)
+            {
+                favoriteIds.Add(id);
+            }
+            else
+            {
+                favoriteIds.Remove(id);
+            }
         }
-        else
+        catch (Exception ex)
         {
-            favoriteIds.Remove(id);
+            Notification = "Не удалось обновить избранное.";
+            NotificationStyle = "error";
         }
 
         StateHasChanged();
+    }
     }
 
     private decimal CalculateMonthlyPayment(decimal price)
