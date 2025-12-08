@@ -8,8 +8,6 @@ namespace WebApp.ViewModels;
 /// </summary>
 public class RegisterInputModel
 {
-    private string phone = string.Empty;
-
     [Required(ErrorMessage = "Фамилия обязательна")]
     [MaxLength(50, ErrorMessage = "Фамилия не должна превышать 50 символов")]
     public string LastName { get; set; } = string.Empty;
@@ -25,8 +23,13 @@ public class RegisterInputModel
     [EmailAddress(ErrorMessage = "Введите корректный email")]
     public string Email { get; set; } = string.Empty;
 
+    private string phone = string.Empty;
+
     [Required(ErrorMessage = "Телефон обязателен")]
     [Phone(ErrorMessage = "Введите корректный номер телефона")]
+    [RegularExpression(
+        @"^[0-9+()\-\s]{10,20}$",
+        ErrorMessage = "Телефон должен содержать 10–20 цифр и может включать +, пробелы, скобки и дефис")]
     public string Phone
     {
         get => phone;
@@ -36,8 +39,8 @@ public class RegisterInputModel
     [Required(ErrorMessage = "Пароль обязателен")]
     [DataType(DataType.Password)]
     [StringLength(100, MinimumLength = 6, ErrorMessage = "Пароль должен содержать минимум 6 символов")]
+    [RegularExpression(
+        @"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{6,}$",
+        ErrorMessage = "Пароль должен содержать заглавную, строчную буквы и цифру")]
     public string Password { get; set; } = string.Empty;
-
-    [Required(ErrorMessage = "Выберите роль")]
-    public string Role { get; set; } = "client";
 }

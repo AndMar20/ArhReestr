@@ -15,13 +15,8 @@
         <div>
             <h1 class="section-title">Создать аккаунт</h1>
             <p class="section-sub">Заполните профиль, чтобы отслеживать заявки и договариваться о показах.</p>
-            <div class="badges">
-                <span class="tag-pill primary">Риелторы и клиенты</span>
-                <span class="tag-pill">Уведомления по заявкам</span>
-            </div>
         </div>
     </div>
-    <div class="split-card">
         <div class="panel">
             @if (!string.IsNullOrEmpty(Error))
             {
@@ -50,73 +45,34 @@
                         <InputText @bind-Value="Model.Email" type="email" />
                         <ValidationMessage For="@(() => Model.Email)" />
                     </label>
-                    <label>Телефон
-                        <InputText @bind-Value="Model.Phone" @bind-Value:event="oninput" type="tel" inputmode="tel" pattern="[0-9+()\\-\\s]*" />
-                        <ValidationMessage For="@(() => Model.Phone)" />
-                    </label>
+                <label>Телефон
+                    <InputText @bind-Value="Model.Phone"
+                               type="tel"
+                               inputmode="tel"
+                               pattern="[0-9+()\-\s]*" />
+                    <ValidationMessage For="@(() => Model.Phone)" />
+                </label>
                 </div>
                 <label>Пароль
                     <InputText @bind-Value="Model.Password" type="password" />
                     <ValidationMessage For="@(() => Model.Password)" />
                 </label>
-                <label>Роль
-                    <InputSelect @bind-Value="Model.Role">
-                        @foreach (var role in Roles)
-                        {
-                            <option value="@role.Name">@role.DisplayName</option>
-                        }
-                    </InputSelect>
-                    <ValidationMessage For="@(() => Model.Role)" />
-                </label>
                 <button type="submit">Зарегистрироваться</button>
             </EditForm>
         </div>
-        <div class="panel highlight">
-            <h3>Готовые профили</h3>
-            <p class="muted">Используйте преднастроенные роли, чтобы сразу перейти к интерфейсам клиента, риелтора или администратора.</p>
-            <ul class="checklist">
-                <li><strong>client@example.com</strong> · Покупатель</li>
-                <li><strong>agent@example.com</strong> · Риелтор</li>
-                <li><strong>admin@example.com</strong> · Администратор</li>
-            </ul>
-            <p class="muted">Пароль для всех: <code>Password123!</code></p>
-            <NavLink class="primary ghost" href="/login">Перейти ко входу</NavLink>
-        </div>
-    </div>
 </section>
 
 @code {
     private readonly RegisterInputModel Model = new();
-    private List<DataLayer.Models.Role> Roles { get; set; } = new();
     private string? Error;
 
-    protected override async Task OnInitializedAsync()
+    // Базовая роль по умолчанию
+    private const string DefaultRoleName = "client";
+
+    protected override Task OnInitializedAsync()
     {
-        try
-        {
-            var roles = await LookupService.GetRolesAsync();
-            Roles = roles.Where(r => r.Name != "admin").ToList();
-
-            if (Roles.Count == 0)
-            {
-                Error = DatabaseErrorMessages.ConnectionFailed;
-                return;
-            }
-
-            Model.Role = Roles.FirstOrDefault()?.Name ?? "client";
-        }
-        catch (InvalidOperationException ex)
-        {
-            var message = DatabaseErrorMessages.Resolve(ex);
-            Logger.LogError(ex, message);
-            Error = message;
-        }
-        catch (Exception ex)
-        {
-            var message = DatabaseErrorMessages.Resolve(ex);
-            Logger.LogError(ex, message);
-            Error = message;
-        }
+        // Никаких ролей с формы — всё выставим в RegisterAsync
+        return Task.CompletedTask;
     }
 
     private async Task RegisterAsync()
@@ -126,12 +82,6 @@
 
         try
         {
-            if (Roles.Count == 0)
-            {
-                Error = "Регистрация недоступна: не удалось подключиться к базе данных.";
-                return;
-            }
-
             var normalizedEmail = Model.Email.Trim().ToUpperInvariant();
             var existingUser = await UserManager.FindByEmailAsync(normalizedEmail);
             if (existingUser is not null)
@@ -140,12 +90,15 @@
                 return;
             }
 
-            var role = Roles.FirstOrDefault(r => r.Name == Model.Role);
+            // Ищем роль "client" через LookupService
+            var roles = await LookupService.GetRolesAsync();
+            var role = roles.FirstOrDefault(r => r.Name == DefaultRoleName);
             if (role is null)
             {
-                Error = "Выбранная роль недоступна. Попробуйте снова.";
+                Error = "Регистрация недоступна: базовая роль клиента не найдена.";
                 return;
             }
+
             var user = new ApplicationUser
             {
                 Email = Model.Email.Trim(),
@@ -175,8 +128,7 @@
         }
         catch (DbUpdateException ex)
         {
-            // MySQL может вернуть 1062 (duplicate key) или другие коды, пробуем перевести их в понятное сообщение.
-            var message = DatabaseErrorMessages.Resolve(ex.InnerException as DbException); // DbUpdateException не DbException, но может содержать его внутри
+            var message = DatabaseErrorMessages.Resolve(ex.InnerException as DbException);
             Logger.LogError(ex, message);
             Error = message;
         }
@@ -193,13 +145,5 @@
             Logger.LogError(ex, message);
             Error = message;
         }
-    }
-
-    private void FilterPhone(ChangeEventArgs args)
-    {
-        var rawValue = args.Value?.ToString() ?? string.Empty;
-        var sanitized = Regex.Replace(rawValue, "[^0-9+()\\-\\s]", string.Empty);
-
-        Model.Phone = sanitized;
     }
 }
