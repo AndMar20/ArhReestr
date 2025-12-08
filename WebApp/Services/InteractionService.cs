@@ -230,4 +230,34 @@ public class InteractionService
             AgentPhone = interaction.Agent?.Phone ?? string.Empty
         };
     }
+    public async Task<IReadOnlyList<InteractionSummary>> GetClientInteractionsAsync(
+    int clientId,
+    CancellationToken cancellationToken = default)
+    {
+        if (clientId <= 0)
+            throw new InvalidOperationException("Некорректный пользователь.");
+
+        try
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+
+            var interactions = await context.Interactions
+                .AsNoTracking()
+                .Include(i => i.Agent)
+                .Include(i => i.Client)
+                .Include(i => i.RealEstate)
+                    .ThenInclude(r => r.House)
+                    .ThenInclude(h => h.Street)
+                .Include(i => i.Status)
+                .Where(i => i.ClientId == clientId && i.DeletedAt == null)
+                .OrderByDescending(i => i.UpdatedAt)
+                .ToListAsync(cancellationToken);
+
+            return interactions.Select(Map).ToList();
+        }
+        catch
+        {
+            return Array.Empty<InteractionSummary>();
+        }
+    }
 }

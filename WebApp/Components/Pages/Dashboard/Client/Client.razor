@@ -1,0 +1,120 @@
+﻿@page "/client"
+@using global::System.Security.Claims
+@attribute [Authorize(Policy = "RequireClient")]
+@inject InteractionService InteractionService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
+
+<PageTitle>Личный кабинет клиента</PageTitle>
+
+<section class="hero-card">
+    <div class="section-header">
+        <h1 class="section-title">Мои заявки</h1>
+        <p class="section-sub">Просматривайте заявки, статусы и контакты риелторов.</p>
+    </div>
+</section>
+
+@if (!string.IsNullOrEmpty(Notification))
+{
+    <div class="alert @NotificationStyle">@Notification</div>
+}
+
+@if (IsLoading)
+{
+    <p>Загрузка...</p>
+}
+else if (Interactions.Count == 0)
+{
+    <p>Вы ещё не оставляли заявок. Перейдите в <a href="/search">каталог</a>!</p>
+}
+else
+{
+    <div class="panel">
+        <div class="section-header">
+            <h2>Ваши взаимодействия</h2>
+            <span class="small-text">@Interactions.Count записей</span>
+        </div>
+
+        <div class="table-wrapper">
+            <table class="data-table stacked-table">
+                <thead>
+                    <tr>
+                        <th>Объект</th>
+                        <th>Риелтор</th>
+                        <th>Телефон</th>
+                        <th>Статус</th>
+                        <th>Обновлено</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var i in Interactions)
+                    {
+                        <tr>
+                            <td data-label="Объект">@i.RealEstate</td>
+                            <td data-label="Риелтор">@i.Agent</td>
+                            <td data-label="Телефон">@i.AgentPhone</td>
+                            <td data-label="Статус">@i.Status</td>
+                            <td data-label="Обновлено">@i.UpdatedAt.ToString("g")</td>
+                            <td data-label="Действия" class="actions-row">
+                                <a class="ghost" href="/real-estate/@i.AgentId">Подробнее</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@code {
+    private readonly List<InteractionSummary> Interactions = new();
+    private string? Notification;
+    private string NotificationStyle = "info";
+    private bool IsLoading = true;
+    private int _userId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var state = await AuthStateProvider.GetAuthenticationStateAsync();
+            var idValue = state.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (!int.TryParse(idValue, out _userId) || _userId <= 0)
+            {
+                Notification = "Не удалось определить пользователя.";
+                NotificationStyle = "error";
+                return;
+            }
+
+            await LoadInteractionsAsync();
+        }
+        catch (Exception ex)
+        {
+            Notification = "Ошибка при загрузке данных.";
+            NotificationStyle = "error";
+        }
+    }
+
+    private async Task LoadInteractionsAsync()
+    {
+        try
+        {
+            IsLoading = true;
+            Interactions.Clear();
+
+            var data = await InteractionService.GetClientInteractionsAsync(_userId);
+            Interactions.AddRange(data);
+        }
+        catch (Exception ex)
+        {
+            Notification = "Не удалось загрузить заявки.";
+            NotificationStyle = "error";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+}
