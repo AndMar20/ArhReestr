@@ -60,6 +60,7 @@
                     <thead>
                         <tr>
                             <th>Клиент</th>
+                            <th>Телефон</th>
                             <th>Объект</th>
                             <th>Статус</th>
                             <th>Обновлено</th>
@@ -71,6 +72,7 @@
                         {
                             <tr class="@(SelectedInteraction?.Id == interaction.Id ? "selected" : string.Empty)">
                                 <td data-label="Клиент">@interaction.Client</td>
+                                <td data-label="Телефон">@interaction.ClientPhone</td>
                                 <td data-label="Объект">@interaction.RealEstate</td>
                                 <td data-label="Статус">@interaction.Status</td>
                                 <td data-label="Обновлено">@interaction.UpdatedAt.ToString("g")</td>
@@ -87,6 +89,10 @@
         @if (SelectedInteraction is not null)
         {
             <div class="panel-section">
+                <p class="small-text">
+                    Клиент: <strong>@SelectedInteraction.Client</strong><br />
+                    Телефон: <strong>@SelectedInteraction.ClientPhone</strong>
+                </p>
                 <EditForm Model="UpdateModel" OnValidSubmit="UpdateAsync" class="form-stack" FormName="interactionUpdateForm">
                     <h3>Обновить взаимодействие #@SelectedInteraction.Id</h3>
                     <label>Статус

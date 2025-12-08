@@ -224,6 +224,10 @@ public class InteractionService
             interaction.ContactedAt,
             interaction.UpdatedAt,
             interaction.Notes
-        );
+        )
+        {
+            ClientPhone = interaction.Client?.Phone ?? string.Empty,
+            AgentPhone = interaction.Agent?.Phone ?? string.Empty
+        };
     }
 }

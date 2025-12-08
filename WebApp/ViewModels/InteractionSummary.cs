@@ -13,4 +13,8 @@ public record InteractionSummary(
     string Status,
     DateTime ContactedAt,
     DateTime UpdatedAt,
-    string? Notes);
+    string? Notes)
+{
+    public string ClientPhone { get; init; } = string.Empty;
+    public string AgentPhone { get; init; } = string.Empty;
+};

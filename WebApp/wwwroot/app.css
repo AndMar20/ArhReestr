@@ -718,6 +718,12 @@ section article {
         padding: 0.75rem 0;
     }
 
+@media (max-width: 768px) {
+    .segmented-control button:nth-child(2) {
+        display: none;
+        }
+    }
+
     .nav-header {
         justify-content: space-between;
     }
