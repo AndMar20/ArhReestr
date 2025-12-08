@@ -76,4 +76,26 @@ public class LookupService
             return Array.Empty<DataLayer.Models.Role>();
         }
     }
+    /// <summary>
+    /// Возвращает роль по системному имени. Бросает InvalidOperationException с понятным текстом при ошибке подключения.
+    /// </summary>
+    public async Task<DataLayer.Models.Role?> GetRoleByNameAsync(string roleName, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var role = await _context.Roles.AsNoTracking().FirstOrDefaultAsync(r => r.Name == roleName, cancellationToken);
+            return role;
+        }
+        catch (DbException ex)
+        {
+            var message = DatabaseErrorMessages.Resolve(ex);
+            _logger.LogError(ex, message);
+            throw new InvalidOperationException(message, ex);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Не удалось найти роль {RoleName}", roleName);
+            return null;
+        }
+    }
 }

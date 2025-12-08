@@ -37,7 +37,4 @@ public class RegisterInputModel
     [DataType(DataType.Password)]
     [StringLength(100, MinimumLength = 6, ErrorMessage = "Пароль должен содержать минимум 6 символов")]
     public string Password { get; set; } = string.Empty;
-
-    [Required(ErrorMessage = "Выберите роль")]
-    public string Role { get; set; } = "client";
 }

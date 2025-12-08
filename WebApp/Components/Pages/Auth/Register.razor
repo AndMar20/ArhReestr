@@ -59,51 +59,29 @@
                     <InputText @bind-Value="Model.Password" type="password" />
                     <ValidationMessage For="@(() => Model.Password)" />
                 </label>
-                <label>Роль
-                    <InputSelect @bind-Value="Model.Role">
-                        @foreach (var role in Roles)
-                        {
-                            <option value="@role.Name">@role.DisplayName</option>
-                        }
-                    </InputSelect>
-                    <ValidationMessage For="@(() => Model.Role)" />
-                </label>
                 <button type="submit">Зарегистрироваться</button>
             </EditForm>
-        </div>
-        <div class="panel highlight">
-            <h3>Готовые профили</h3>
-            <p class="muted">Используйте преднастроенные роли, чтобы сразу перейти к интерфейсам клиента, риелтора или администратора.</p>
-            <ul class="checklist">
-                <li><strong>client@example.com</strong> · Покупатель</li>
-                <li><strong>agent@example.com</strong> · Риелтор</li>
-                <li><strong>admin@example.com</strong> · Администратор</li>
-            </ul>
-            <p class="muted">Пароль для всех: <code>Password123!</code></p>
-            <NavLink class="primary ghost" href="/login">Перейти ко входу</NavLink>
         </div>
     </div>
 </section>
 
 @code {
     private readonly RegisterInputModel Model = new();
-    private List<DataLayer.Models.Role> Roles { get; set; } = new();
+    private DataLayer.Models.Role? DefaultRole { get; set; }
     private string? Error;
+    private const string DefaultRoleName = "client";
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            var roles = await LookupService.GetRolesAsync();
-            Roles = roles.Where(r => r.Name != "admin").ToList();
+            DefaultRole = await LookupService.GetRoleByNameAsync(DefaultRoleName);
 
-            if (Roles.Count == 0)
+            if (DefaultRole is null)
             {
-                Error = DatabaseErrorMessages.ConnectionFailed;
-                return;
+                Error = "Регистрация недоступна: базовая роль клиента не найдена.";
             }
 
-            Model.Role = Roles.FirstOrDefault()?.Name ?? "client";
         }
         catch (InvalidOperationException ex)
         {
@@ -126,7 +104,7 @@
 
         try
         {
-            if (Roles.Count == 0)
+            if (DefaultRole is null)
             {
                 Error = "Регистрация недоступна: не удалось подключиться к базе данных.";
                 return;
@@ -140,11 +118,10 @@
                 return;
             }
 
-            var role = Roles.FirstOrDefault(r => r.Name == Model.Role);
+            var role = DefaultRole ?? await LookupService.GetRoleByNameAsync(DefaultRoleName);
             if (role is null)
             {
-                Error = "Выбранная роль недоступна. Попробуйте снова.";
-                return;
+                Error = "Регистрация недоступна: базовая роль клиента не найдена.";
             }
             var user = new ApplicationUser
             {

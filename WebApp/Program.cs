@@ -87,6 +87,7 @@ builder.Services.AddScoped<InteractionService>();
 builder.Services.AddScoped<ReportService>();
 builder.Services.AddScoped<LookupService>();
 builder.Services.AddScoped<FavoriteService>();
+builder.Services.AddScoped<AdminUserService>();
 
 
 
