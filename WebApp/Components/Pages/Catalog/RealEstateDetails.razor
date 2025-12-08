@@ -264,9 +264,17 @@ else
 
     private string BuildMapUrl(decimal lat, decimal lng)
     {
+        const decimal padding = 0.01m;
+
         var latitude = lat.ToString(CultureInfo.InvariantCulture);
         var longitude = lng.ToString(CultureInfo.InvariantCulture);
-        return $"https://www.openstreetmap.org/export/embed.html?layer=mapnik&marker={latitude}%2C{longitude}";
+
+        var southLat = (lat - padding).ToString(CultureInfo.InvariantCulture);
+        var westLng = (lng - padding).ToString(CultureInfo.InvariantCulture);
+        var northLat = (lat + padding).ToString(CultureInfo.InvariantCulture);
+        var eastLng = (lng + padding).ToString(CultureInfo.InvariantCulture);
+
+        return $"https://www.openstreetmap.org/export/embed.html?bbox={westLng}%2C{southLat}%2C{eastLng}%2C{northLat}&layer=mapnik&marker={latitude}%2C{longitude}";
     }
 
     private string BuildExternalMapLink(decimal lat, decimal lng)

@@ -1,0 +1,183 @@
+@page "/admin/users"
+@attribute [Authorize(Policy = "RequireAdmin")]
+@inject AdminUserService AdminUserService
+@inject LookupService LookupService
+@inject ILogger<ManageUsers> Logger 
+@using DataLayer.Models
+
+<PageTitle>Пользователи</PageTitle>
+
+@if (IsLoading)
+{
+    <div class="alert info">Загружаем список пользователей...</div>
+}
+else
+{
+    <section class="hero-card">
+        <div class="section-header">
+            <div>
+                <h1 class="section-title">Пользователи</h1>
+                <p class="section-sub">Назначайте роли и создавайте риелторов прямо из панели администратора.</p>
+            </div>
+            <NavLink class="ghost" href="/admin">Вернуться в панель</NavLink>
+        </div>
+    </section>
+
+    @if (!string.IsNullOrEmpty(Notification))
+    {
+        <div class="alert @NotificationStyle">@Notification</div>
+    }
+
+    <div class="panel">
+        <div class="section-header">
+            <h2>Все пользователи</h2>
+            <span class="small-text">@Users.Count записей</span>
+        </div>
+
+        @if (Users.Count == 0)
+        {
+            <p class="muted">Пользователи не найдены.</p>
+        }
+        else
+        {
+            <div class="table-wrapper">
+                <table class="data-table stacked-table">
+                    <thead>
+                        <tr>
+                            <th>ФИО</th>
+                            <th>Email</th>
+                            <th>Телефон</th>
+                            <th>Роль</th>
+                            <th>Создан</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var user in Users)
+                        {
+                            <tr>
+                                <td data-label="ФИО">
+                                    <div class="cell-primary">@user.FullName</div>
+                                    <div class="cell-note">ID: @user.Id</div>
+                                </td>
+                                <td data-label="Email">@user.Email</td>
+                                <td data-label="Телефон">@user.Phone</td>
+                                <td data-label="Роль">
+                                    <div class="select">
+                                        <select @bind="user.SelectedRole" aria-label="Выбрать роль для пользователя @user.FullName">
+                                            @foreach (var role in Roles)
+                                            {
+                                                <option value="@role.Name">@role.DisplayName</option>
+                                            }
+                                        </select>
+                                    </div>
+                                </td>
+                                <td data-label="Создан">@user.CreatedAt.ToString("g")</td>
+                                <td>
+                                    <button class="ghost" disabled="@user.IsSaving" @onclick="() => SaveRoleAsync(user)">
+                                        @(user.IsSaving ? "Сохраняем..." : "Обновить роль")
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<Role> Roles { get; set; } = new();
+    private List<EditableUser> Users { get; set; } = new();
+    private string? Notification;
+    private string NotificationStyle { get; set; } = "info";
+    private bool IsLoading { get; set; } = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            Roles = (await LookupService.GetRolesAsync()).ToList();
+            Users = (await AdminUserService.GetUsersAsync()).Select(u => new EditableUser(u)).ToList();
+        }
+        catch (InvalidOperationException ex)
+        {
+            Notification = ex.Message;
+            NotificationStyle = "error";
+        }
+        catch (Exception ex)
+        {
+            Notification = DatabaseErrorMessages.Resolve(ex);
+            NotificationStyle = "error";
+            Logger.LogError(ex, "Не удалось загрузить пользователей");
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async Task SaveRoleAsync(EditableUser user)
+    {
+        Notification = null;
+        NotificationStyle = "info";
+        user.IsSaving = true;
+
+        try
+        {
+            await AdminUserService.UpdateUserRoleAsync(user.Id, user.SelectedRole);
+
+            var selected = Roles.FirstOrDefault(r => r.Name == user.SelectedRole);
+            user.RoleName = selected?.Name ?? user.SelectedRole;
+            user.RoleDisplayName = selected?.DisplayName ?? user.RoleDisplayName;
+            Notification = $"Роль пользователя {user.FullName} обновлена.";
+            NotificationStyle = "success";
+        }
+        catch (InvalidOperationException ex)
+        {
+            Notification = ex.Message;
+            NotificationStyle = "error";
+        }
+        catch (Exception ex)
+        {
+            Notification = DatabaseErrorMessages.Resolve(ex);
+            NotificationStyle = "error";
+            Logger.LogError(ex, "Ошибка при смене роли пользователя {UserId}", user.Id);
+        }
+        finally
+        {
+            user.IsSaving = false;
+        }
+    }
+
+    private class EditableUser
+    {
+        public EditableUser(UserListItem item)
+        {
+            Id = item.Id;
+            FullName = item.FullName;
+            Email = item.Email;
+            Phone = item.Phone;
+            RoleName = item.RoleName;
+            RoleDisplayName = item.RoleDisplayName;
+            CreatedAt = item.CreatedAt;
+            SelectedRole = item.RoleName;
+        }
+
+        public int Id { get; }
+        public string FullName { get; }
+        public string Email { get; }
+        public string Phone { get; }
+        public string RoleName { get; set; }
+        public string RoleDisplayName { get; set; }
+        public string SelectedRole { get; set; }
+        public DateTime CreatedAt { get; }
+        public bool IsSaving { get; set; }
+    }
+}

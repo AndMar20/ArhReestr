@@ -9,28 +9,21 @@ public class FavoriteService
 {
     private const string StorageKey = "arh:favorites";
     private readonly ProtectedLocalStorage _storage;
+    private readonly ILogger<FavoriteService> _logger;
     private HashSet<int>? _cache;
 
-    /// <summary>
-    /// Внедряем защищённое локальное хранилище Blazor для сохранения избранного.
-    /// </summary>
-    public FavoriteService(ProtectedLocalStorage storage)
+    public FavoriteService(ProtectedLocalStorage storage, ILogger<FavoriteService> logger)
     {
         _storage = storage;
+        _logger = logger;
     }
 
-    /// <summary>
-    /// Возвращает текущий набор избранных идентификаторов, подгружая его из storage один раз.
-    /// </summary>
     public async Task<IReadOnlyCollection<int>> GetAsync()
     {
         _cache ??= await LoadAsync();
         return _cache;
     }
 
-    /// <summary>
-    /// Добавляет объект в избранное; возвращает true, если элемент добавлен впервые.
-    /// </summary>
     public async Task<bool> AddAsync(int realEstateId)
     {
         var favorites = await EnsureCacheAsync();
@@ -43,9 +36,6 @@ public class FavoriteService
         return added;
     }
 
-    /// <summary>
-    /// Удаляет объект из избранного; возвращает true, если он там был.
-    /// </summary>
     public async Task<bool> RemoveAsync(int realEstateId)
     {
         var favorites = await EnsureCacheAsync();
@@ -58,23 +48,26 @@ public class FavoriteService
         return removed;
     }
 
-    /// <summary>
-    /// Переключает наличие элемента: если был — удаляет, если не было — добавляет.
-    /// </summary>
     public async Task<bool> ToggleAsync(int realEstateId)
     {
         var favorites = await EnsureCacheAsync();
-        var added = favorites.Contains(realEstateId)
-            ? !favorites.Remove(realEstateId)
-            : favorites.Add(realEstateId);
+        bool added;
+
+        if (favorites.Contains(realEstateId))
+        {
+            favorites.Remove(realEstateId);
+            added = false;
+        }
+        else
+        {
+            favorites.Add(realEstateId);
+            added = true;
+        }
 
         await PersistAsync(favorites);
         return added;
     }
 
-    /// <summary>
-    /// Проверяет, находится ли объект в избранном.
-    /// </summary>
     public async Task<bool> IsFavoriteAsync(int realEstateId)
     {
         var favorites = await EnsureCacheAsync();
@@ -89,15 +82,44 @@ public class FavoriteService
 
     private async Task<HashSet<int>> LoadAsync()
     {
-        var result = await _storage.GetAsync<List<int>>(StorageKey);
-        return result.Success && result.Value is { Count: > 0 }
-            ? new HashSet<int>(result.Value)
-            : new HashSet<int>();
+        try
+        {
+            var result = await _storage.GetAsync<List<int>>(StorageKey);
+
+            if (result.Success && result.Value is { Count: > 0 })
+            {
+                return new HashSet<int>(result.Value);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Не удалось загрузить избранное из локального хранилища, сбрасываем ключ.");
+
+            try
+            {
+                await _storage.DeleteAsync(StorageKey);
+            }
+            catch
+            {
+                // Вторичную ошибку при удалении просто игнорируем
+            }
+        }
+
+        return new HashSet<int>();
     }
 
     private async Task PersistAsync(HashSet<int> favorites)
     {
         _cache = favorites;
-        await _storage.SetAsync(StorageKey, favorites.ToList());
+
+        try
+        {
+            await _storage.SetAsync(StorageKey, favorites.ToList());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Не удалось сохранить избранное в локальное хранилище");
+            throw; // пусть поймает UI и покажет сообщение
+        }
     }
 }
