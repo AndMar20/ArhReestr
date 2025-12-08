@@ -445,14 +445,23 @@ else
         Filter.MinArea = null;
         Filter.MaxArea = null;
         Filter.Rooms = null;
+
+        // сортировка и пагинация
         Filter.SortBy = "price";
         Filter.SortDescending = false;
         Filter.Page = 1;
         Filter.PageSize = 20;
         sortDirection = "asc";
+
+        // локальные чекбоксы
         balconyRequired = false;
         parkingRequired = false;
         elevatorRequired = false;
+
+        // ОБЯЗАТЕЛЬНО: сбрасываем сами поля фильтра по удобствам
+        Filter.HasBalcony = null;
+        Filter.HasParking = null;
+        Filter.HasElevator = null;
 
         return LoadAsync();
     }
