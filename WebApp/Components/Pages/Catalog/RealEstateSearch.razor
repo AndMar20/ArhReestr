@@ -189,7 +189,9 @@ else
                             <button @onclick="() => ContactAsync(item)" disabled="@(IsLoading || pendingFilter || contactingItems.Contains(item.Id))">
                                 @(contactingItems.Contains(item.Id) ? "Отправка..." : "Оставить заявку")
                             </button>
-                            <button class="icon-button favorite-button @(favoriteIds.Contains(item.Id) ? "active" : string.Empty)" @onclick="() => ToggleFavoriteAsync(item.Id)" disabled="@(IsLoading || pendingFilter)">
+                            <button class="icon-button favorite-button @(favoriteIds.Contains(item.Id) ? "active" : string.Empty)"
+                                    @onclick="() => ToggleFavoriteAsync(item.Id)"
+                                    disabled="@(IsLoading || pendingFilter)">
                                 <span aria-hidden="true">★</span>
                                 <span class="sr-only">@(favoriteIds.Contains(item.Id) ? "Убрать из избранного" : "Добавить в избранное")</span>
                             </button>
@@ -612,8 +614,6 @@ else
         return LoadAsync();
     }
 
-    private async Task ToggleFavoriteAsync(int id)
-    {
 private async Task ToggleFavoriteAsync(int id)
     {
         try
@@ -635,7 +635,6 @@ private async Task ToggleFavoriteAsync(int id)
         }
 
         StateHasChanged();
-    }
     }
 
     private decimal CalculateMonthlyPayment(decimal price)
