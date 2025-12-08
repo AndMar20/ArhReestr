@@ -2,9 +2,7 @@ services:
   webapp:                            
     build:
       context: .                      
-      dockerfile: WebApp/Dockerfile
-    dns:
-      - 188.225.10.217
+      dockerfile: WebApp/Dockerfile   
     environment:
       ASPNETCORE_URLS: "http://+:8080"
       ConnectionStrings__DefaultConnection: "Server=db;Port=3306;Database=ispp2108;User=ispp2108;Password=2108;TreatTinyAsBoolean=true;"

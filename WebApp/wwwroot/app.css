@@ -597,15 +597,14 @@ textarea:focus {
 }
 
 .favorite-button.active {
-    color: #0f172a;
-    border-color: #c7d6ff;
-    background: #edf3ff;
+    color: #f59e0b;
+    border-color: #f59e0b;
+    background: #fffbeb;
 }
 
 .favorite-button.active:hover:not(:disabled) {
-    color: #0f172a;
-    border-color: #99b7ff;
-    background: #e0e9ff;
+    color: #d97706;
+    border-color: #d97706;
 }
 
 .sr-only {
