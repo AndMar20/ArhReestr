@@ -567,7 +567,7 @@ else
         try
         {
             await InteractionService.CreateInteractionAsync(userId, item.AgentId, item.Id, "Заявка из каталога");
-            Notification = "Заявка отправлена. Контакты риелтора отображаются в личном кабинете.";
+            Notification = "Заявка отправлена. Контакты риелтора отображаются в <a href=\"/client\">кабинете клиента</a>.";
             NotificationStyle = "success";
         }
         catch (Exception)

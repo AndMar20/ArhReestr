@@ -37,6 +37,11 @@
                             <NavLink href="/realtor" Match="NavLinkMatch.Prefix" @onclick="CloseMenu">Кабинет риелтора</NavLink>
                         </Authorized>
                     </AuthorizeView>
+                    <AuthorizeView Roles="admin,client">
+                        <Authorized>
+                            <NavLink href="/client" class="nav-link" Match="NavLinkMatch.Prefix">Кабинет клиента</NavLink>
+                        </Authorized>
+                    </AuthorizeView>
                 </nav>
                 <LoginDisplay />
             </div>

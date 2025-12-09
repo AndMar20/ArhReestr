@@ -230,6 +230,10 @@ public class InteractionService
             AgentPhone = interaction.Agent?.Phone ?? string.Empty
         };
     }
+
+    /// <summary>
+    /// Отдаёт обращения конкретного клиента, включая связанные сущности для вывода в UI.
+    /// </summary>
     public async Task<IReadOnlyList<InteractionSummary>> GetClientInteractionsAsync(
     int clientId,
     CancellationToken cancellationToken = default)
