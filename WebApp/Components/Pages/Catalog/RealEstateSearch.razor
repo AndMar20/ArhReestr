@@ -318,6 +318,7 @@ else
 
     protected override void OnInitialized()
     {
+        Filter.PageSize = 15;
         filterContext = new EditContext(Filter);
         filterContext.EnableDataAnnotationsValidation();
         filterContext.OnFieldChanged += OnFilterFieldChanged;
@@ -460,7 +461,7 @@ else
         Filter.SortBy = "price";
         Filter.SortDescending = false;
         Filter.Page = 1;
-        Filter.PageSize = 20;
+        Filter.PageSize = 12;
         sortDirection = "asc";
 
         // локальные чекбоксы
