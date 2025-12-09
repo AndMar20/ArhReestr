@@ -144,7 +144,7 @@ else
     private string? Notification;
     private string NotificationStyle { get; set; } = "info";
     private bool IsLoading { get; set; } = true;
-    private int ClosedDeals => GetStatusCount("закры");
+    private int ClosedDeals => CountByKeyword("закры", "заверш");
     private static string GetStatusBadge(string status)
     {
         if (status.Contains("закры", StringComparison.OrdinalIgnoreCase))
@@ -186,8 +186,10 @@ else
         }
     }
 
-    private int GetStatusCount(string keyword)
+    private int CountByKeyword(params string[] keywords)
     {
-        return Statuses.FirstOrDefault(s => s.Category.Contains(keyword, StringComparison.OrdinalIgnoreCase))?.Value ?? 0;
+        return Interactions.Count(i =>
+            keywords.Any(k =>
+                i.Status.Contains(k, StringComparison.OrdinalIgnoreCase)));
     }
 }
