@@ -37,9 +37,10 @@
             <button type="button" class="chip ghost" @onclick="() => ApplyQuickFilterAsync(2, null, null, null)">2-комнатные</button>
             <button type="button" class="chip ghost" @onclick="() => ApplyQuickFilterAsync(null, true, null, null)">С балконом</button>
             <button type="button" class="chip ghost" @onclick="() => ApplyQuickFilterAsync(null, null, true, null)">Парковка</button>
-            <button type="button" class="chip ghost" @onclick="ResetFiltersAsync">Сбросить всё</button>
+            <button type="button" class="chip ghost reset-btn" @onclick="ResetFiltersAsync">Сбросить всё</button>
         </div>
     </div>
+    <br/>
     <div class="filters-toggle">
         <button class="ghost" type="button" @onclick="ToggleFilters">@FilterToggleText</button>
     </div>
@@ -151,51 +152,60 @@ else
                         {
                             <img src="@item.PrimaryPhoto" alt="Фото" />
                         }
-                        <div class="meta-line">
-                            <span class="tag-pill primary">@item.Type</span>
-                            <span class="tag-pill">@item.District</span>
-                        </div>
-                        <h2>@item.Address</h2>
-                        <div class="meta-line">
-                            <span>@item.Rooms-комн. · @item.Area м²</span>
-                            <span>Этаж @item.Floor/@item.TotalFloors</span>
-                        </div>
-                        <p class="price">@item.Price.ToString("N0") ₽</p>
-                        <div class="meta-line">
-                            <span class="small-text">Риелтор: @item.Agent</span>
-                            <div class="tags">
-                                @if (item.HasBalcony)
-                                {
-                                    <span class="tag-pill">Балкон</span>
-                                }
-                                @if (item.HasParking)
-                                {
-                                    <span class="tag-pill">Парковка</span>
-                                }
-                                @if (item.HasElevator)
-                                {
-                                    <span class="tag-pill">Лифт</span>
-                                }
+                        <div class="card-content">
+                            <div class="meta-line">
+                                <span class="tag-pill primary">@item.Type</span>
+                                <span class="tag-pill">@item.District</span>
                             </div>
-                        </div>
-                        <div class="meta-line">
-                            <span class="small-text">Оценка ипотеки: @CalculateMonthlyPayment(item.Price).ToString("N0") ₽/мес</span>
-                            @if (item.Latitude is not null && item.Longitude is not null)
-                            {
-                                <span class="tag-pill">На карте</span>
-                            }
-                        </div>
-                        <div class="card-actions">
-                            <button @onclick="() => ContactAsync(item)" disabled="@(IsLoading || pendingFilter || contactingItems.Contains(item.Id))">
-                                @(contactingItems.Contains(item.Id) ? "Отправка..." : "Оставить заявку")
-                            </button>
-                            <button class="icon-button favorite-button @(favoriteIds.Contains(item.Id) ? "active" : string.Empty)"
-                                    @onclick="() => ToggleFavoriteAsync(item.Id)"
-                                    disabled="@(IsLoading || pendingFilter)">
-                                <span aria-hidden="true">★</span>
-                                <span class="sr-only">@(favoriteIds.Contains(item.Id) ? "Убрать из избранного" : "Добавить в избранное")</span>
-                            </button>
-                            <a class="ghost" href="/real-estate/@item.Id">Подробнее</a>
+
+                            <h2>@item.Address</h2>
+
+                            <div class="meta-line">
+                                <span>@item.Rooms-комн. · @item.Area м²</span>
+                                <span>Этаж @item.Floor/@item.TotalFloors</span>
+                            </div>
+
+                            <p class="price">@item.Price.ToString("N0") ₽</p>
+
+                            <div class="meta-line">
+                                <span class="small-text">Риелтор: @item.Agent</span>
+                                <div class="tags">
+                                    @if (item.HasBalcony)
+                                    {
+                                        <span class="tag-pill">Балкон</span>
+                                    }
+                                    @if (item.HasParking)
+                                    {
+                                        <span class="tag-pill">Парковка</span>
+                                    }
+                                    @if (item.HasElevator)
+                                    {
+                                        <span class="tag-pill">Лифт</span>
+                                    }
+                                </div>
+                            </div>
+
+                            <div class="meta-line">
+                                <span class="small-text">Оценка ипотеки: @CalculateMonthlyPayment(item.Price).ToString("N0") ₽/мес</span>
+                            </div>
+
+                            <div class="card-actions">
+                                <button @onclick="() => ContactAsync(item)"
+                                        disabled="@(IsLoading || pendingFilter || contactingItems.Contains(item.Id))">
+                                    @(contactingItems.Contains(item.Id) ? "Отправка..." : "Оставить заявку")
+                                </button>
+
+                                <button class="icon-button favorite-button @(favoriteIds.Contains(item.Id) ? "active" : string.Empty)"
+                                        @onclick="() => ToggleFavoriteAsync(item.Id)"
+                                        disabled="@(IsLoading || pendingFilter)">
+                                    <span aria-hidden="true">★</span>
+                                    <span class="sr-only">
+                                        @(favoriteIds.Contains(item.Id) ? "Убрать из избранного" : "Добавить в избранное")
+                                    </span>
+                                </button>
+
+                                <a class="ghost" href="/real-estate/@item.Id">Подробнее</a>
+                            </div>
                         </div>
                     </article>
                 }
