@@ -161,7 +161,7 @@ public class InteractionService
 
             interaction.StatusId = request.StatusId;
             interaction.Notes = request.Notes;
-            interaction.UpdatedAt = _timeProvider.GetUtcNow().UtcDateTime;
+            interaction.UpdatedAt = _timeProvider.GetMoscowDateTime();
 
             await context.SaveChangesAsync(cancellationToken);
         }
@@ -195,7 +195,7 @@ public class InteractionService
             interaction.StatusId = request.StatusId;
             interaction.AgentId = request.AgentId;
             interaction.Notes = request.Notes;
-            interaction.UpdatedAt = _timeProvider.GetUtcNow().UtcDateTime;
+            interaction.UpdatedAt = _timeProvider.GetMoscowDateTime();
 
             await context.SaveChangesAsync(cancellationToken);
         }
@@ -226,8 +226,8 @@ public class InteractionService
                 ClientId = clientId,
                 RealEstateId = realEstateId,
                 StatusId = statusId,
-                ContactedAt = _timeProvider.GetUtcNow().UtcDateTime,
-                UpdatedAt = _timeProvider.GetUtcNow().UtcDateTime,
+                ContactedAt = _timeProvider.GetMoscowDateTime(),
+                UpdatedAt = _timeProvider.GetMoscowDateTime(),
                 Notes = notes
             };
 

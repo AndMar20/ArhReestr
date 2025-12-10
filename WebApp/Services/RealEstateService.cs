@@ -479,7 +479,7 @@ public class RealEstateService
                 throw new InvalidOperationException("Этаж не может превышать количество этажей в доме");
             }
 
-            var now = _timeProvider.GetUtcNow().UtcDateTime;
+            var now = _timeProvider.GetMoscowDateTime();
             var entity = new RealEstate
             {
                 AgentId = agentId,

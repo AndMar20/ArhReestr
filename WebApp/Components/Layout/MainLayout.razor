@@ -32,12 +32,12 @@
                             <NavLink href="/admin" Match="NavLinkMatch.Prefix" @onclick="CloseMenu">Кабинет администратора</NavLink>
                         </Authorized>
                     </AuthorizeView>
-                    <AuthorizeView Roles="admin,agent">
+                    <AuthorizeView Roles="agent">
                         <Authorized>
                             <NavLink href="/realtor" Match="NavLinkMatch.Prefix" @onclick="CloseMenu">Кабинет риелтора</NavLink>
                         </Authorized>
                     </AuthorizeView>
-                    <AuthorizeView Roles="admin,client">
+                    <AuthorizeView Roles="client">
                         <Authorized>
                             <NavLink href="/client" class="nav-link" Match="NavLinkMatch.Prefix">Кабинет клиента</NavLink>
                         </Authorized>

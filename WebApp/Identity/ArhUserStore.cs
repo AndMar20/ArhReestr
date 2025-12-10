@@ -2,6 +2,7 @@ using DataLayer;
 using DataLayer.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+usin WebApp.Infrastructure;
 
 namespace WebApp.Identity;
 
@@ -70,7 +71,7 @@ public class ArhUserStore :
             Phone = user.PhoneNumber ?? string.Empty,
             PasswordHash = user.PasswordHash ?? string.Empty,
             RoleId = user.RoleId,
-            CreatedAt = _timeProvider.GetUtcNow().UtcDateTime,
+            CreatedAt = _timeProvider.GetMoscowDateTime(),
             PhoneVerified = user.PhoneNumberConfirmed,
             EmailVerified = user.EmailConfirmed
         };
@@ -94,7 +95,7 @@ public class ArhUserStore :
             return IdentityResult.Success;
         }
 
-        entity.DeletedAt = _timeProvider.GetUtcNow().UtcDateTime;
+        entity.DeletedAt = _timeProvider.GetMoscowDateTime();
         await _context.SaveChangesAsync(cancellationToken);
         return IdentityResult.Success;
     }

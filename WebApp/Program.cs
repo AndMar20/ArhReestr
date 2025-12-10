@@ -216,7 +216,7 @@ app.MapGet("/reports/admin.xlsx", async (ReportService service, TimeProvider tim
         var bytes = await service.BuildExcelAsync(token);
         return Results.File(bytes,
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            $"arhreestr-report-{timeProvider.GetUtcNow():yyyyMMddHHmmss}.xlsx");
+            $"arhreestr-report-{moscowTime:yyyyMMddHHmmss}.xlsx");
     })
     .RequireAuthorization("RequireAdmin");
 
