@@ -1,7 +1,9 @@
 @page "/admin"
+@using WebApp.ViewModels
 @attribute [Authorize(Policy = "RequireAdmin")]
 @inject ReportService ReportService
 @inject InteractionService InteractionService
+@inject LookupService LookupService
 
 <PageTitle>Кабинет администратора</PageTitle>
 
@@ -102,12 +104,13 @@ else
                             <th>Риелтор</th>
                             <th>Объект</th>
                             <th>Статус</th>
+                            <th></th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach (var interaction in Interactions)
                         {
-                            <tr>
+                            <tr class="@(SelectedInteraction?.Id == interaction.Id ? "selected" : string.Empty)">
                                 <td data-label="Клиент">
                                     <div class="cell-primary">@interaction.Client</div>
                                     <div class="cell-note">Связался: @interaction.ContactedAt.ToString("g")</div>
@@ -123,7 +126,50 @@ else
                                 <td data-label="Статус" class="status-cell">
                                     <span class="badge @GetStatusBadge(interaction.Status)">@interaction.Status</span>
                                 </td>
+                                <td class="actions-row table-actions" data-label="Действия">
+                                    <button type="button" @onclick="() => SelectInteractionAsync(interaction)">Изменить</button>
+                                </td>
                             </tr>
+
+                            @if (SelectedInteraction?.Id == interaction.Id)
+                            {
+                                <tr class="inline-editor">
+                                    <td colspan="5">
+                                        <div class="panel-section">
+                                            <p class="small-text">
+                                                Клиент: <strong>@SelectedInteraction.Client</strong><br />
+                                                Телефон: <strong>@SelectedInteraction.ClientPhone</strong>
+                                            </p>
+                                            <EditForm Model="UpdateModel" OnValidSubmit="UpdateInteractionAsync" class="form-stack" FormName="adminInteractionUpdateForm">
+                                                <h3>Редактирование обращения #@SelectedInteraction.Id</h3>
+                                                <label>Статус
+                                                    <InputSelect @bind-Value="UpdateModel.StatusId">
+                                                        @foreach (var status in StatusOptions)
+                                                        {
+                                                            <option value="@status.Id">@status.Name</option>
+                                                        }
+                                                    </InputSelect>
+                                                </label>
+                                                <label>Риелтор
+                                                    <InputSelect @bind-Value="UpdateModel.AgentId">
+                                                        @foreach (var agent in AgentOptions)
+                                                        {
+                                                            <option value="@agent.Key">@agent.Value</option>
+                                                        }
+                                                    </InputSelect>
+                                                </label>
+                                                <label>Комментарий
+                                                    <InputTextArea @bind-Value="UpdateModel.Notes" rows="3" />
+                                                </label>
+                                                <div class="actions-row">
+                                                    <button type="submit" class="primary">Сохранить изменения</button>
+                                                    <button type="button" class="ghost" @onclick="ResetSelection">Отмена</button>
+                                                </div>
+                                            </EditForm>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
                         }
                     </tbody>
                 </table>
@@ -136,7 +182,11 @@ else
     private IReadOnlyList<AdminReportRow> Districts { get; set; } = Array.Empty<AdminReportRow>();
     private IReadOnlyList<AdminReportRow> Agents { get; set; } = Array.Empty<AdminReportRow>();
     private IReadOnlyList<AdminReportRow> Statuses { get; set; } = Array.Empty<AdminReportRow>();
-    private IReadOnlyList<InteractionSummary> Interactions { get; set; } = Array.Empty<InteractionSummary>();
+    private readonly List<InteractionSummary> Interactions = new();
+    private readonly List<DataLayer.Models.InteractionStatus> StatusOptions = new();
+    private Dictionary<int, string> AgentOptions { get; set; } = new();
+    private readonly AdminInteractionUpdateRequest UpdateModel = new();
+    private InteractionSummary? SelectedInteraction;
     private string? Notification;
     private string NotificationStyle { get; set; } = "info";
     private bool IsLoading { get; set; } = true;
@@ -164,7 +214,9 @@ else
             Districts = report.Districts;
             Agents = report.Agents;
             Statuses = report.Statuses;
-            Interactions = await InteractionService.GetAdminInteractionsAsync();
+            StatusOptions.AddRange(await InteractionService.GetStatusesAsync());
+            AgentOptions = await LookupService.GetAgentsAsync();
+            await LoadInteractionsAsync();
         }
         catch (InvalidOperationException ex)
         {
@@ -187,5 +239,58 @@ else
         return Interactions.Count(i =>
             keywords.Any(k =>
                 i.Status.Contains(k, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private async Task LoadInteractionsAsync()
+    {
+        try
+        {
+            var data = await InteractionService.GetAdminInteractionsAsync();
+            Interactions.Clear();
+            Interactions.AddRange(data);
+        }
+        catch (Exception ex)
+        {
+            Notification = DatabaseErrorMessages.Resolve(ex);
+            NotificationStyle = "error";
+        }
+    }
+
+    private async Task SelectInteractionAsync(InteractionSummary interaction)
+    {
+        SelectedInteraction = interaction;
+        UpdateModel.InteractionId = interaction.Id;
+        UpdateModel.StatusId = interaction.StatusId;
+        UpdateModel.AgentId = interaction.AgentId;
+        UpdateModel.Notes = interaction.Notes;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void ResetSelection()
+    {
+        SelectedInteraction = null;
+    }
+
+    private async Task UpdateInteractionAsync()
+    {
+        try
+        {
+            Notification = null;
+            await InteractionService.UpdateByAdminAsync(UpdateModel);
+            await LoadInteractionsAsync();
+            Notification = "Взаимодействие обновлено";
+            NotificationStyle = "success";
+            SelectedInteraction = null;
+        }
+        catch (InvalidOperationException ex)
+        {
+            Notification = ex.Message;
+            NotificationStyle = "error";
+        }
+        catch (Exception ex)
+        {
+            Notification = DatabaseErrorMessages.Resolve(ex);
+            NotificationStyle = "error";
+        }
     }
 }

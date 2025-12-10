@@ -2,8 +2,10 @@
 @attribute [Authorize(Policy = "RequireAdmin")]
 @inject AdminUserService AdminUserService
 @inject LookupService LookupService
-@inject ILogger<ManageUsers> Logger 
+@inject ILogger<ManageUsers> Logger
+@inject AuthenticationStateProvider AuthenticationStateProvider
 @using DataLayer.Models
+@using global::System.Security.Claims
 
 <PageTitle>Пользователи</PageTitle>
 
@@ -30,9 +32,60 @@ else
 
     <div class="panel">
         <div class="section-header">
-            <h2>Все пользователи</h2>
+            <div>
+                <h2>Все пользователи</h2>
+                <p class="small-text">Создавайте аккаунты и управляйте ролями</p>
+            </div>
             <span class="small-text">@Users.Count записей</span>
         </div>
+
+        <EditForm EditContext="newUserContext" OnValidSubmit="CreateUserAsync" class="form-stack">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+            <div class="grid-three">
+                <label>Фамилия
+                    <InputText @bind-Value="NewUser.LastName" />
+                    <ValidationMessage For="@(() => NewUser.LastName)" />
+                </label>
+                <label>Имя
+                    <InputText @bind-Value="NewUser.FirstName" />
+                    <ValidationMessage For="@(() => NewUser.FirstName)" />
+                </label>
+                <label>Отчество
+                    <InputText @bind-Value="NewUser.MiddleName" />
+                    <ValidationMessage For="@(() => NewUser.MiddleName)" />
+                </label>
+            </div>
+            <div class="grid-three">
+                <label>Email
+                    <InputText @bind-Value="NewUser.Email" type="email" />
+                    <ValidationMessage For="@(() => NewUser.Email)" />
+                </label>
+                <label>Телефон
+                    <InputText @bind-Value="NewUser.Phone" type="tel" />
+                    <ValidationMessage For="@(() => NewUser.Phone)" />
+                </label>
+                <label>Пароль
+                    <InputText @bind-Value="NewUser.Password" type="password" />
+                    <ValidationMessage For="@(() => NewUser.Password)" />
+                </label>
+            </div>
+            <div class="grid-two">
+                <label>Роль
+                    <InputSelect @bind-Value="NewUser.RoleName">
+                        <option value="">Выберите роль</option>
+                        @foreach (var role in Roles)
+                        {
+                            <option value="@role.Name">@role.DisplayName</option>
+                        }
+                    </InputSelect>
+                    <ValidationMessage For="@(() => NewUser.RoleName)" />
+                </label>
+            </div>
+            <div class="buttons">
+                <button type="submit" class="primary" disabled="@isCreatingUser">@(isCreatingUser ? "Создаем..." : "Добавить пользователя")</button>
+            </div>
+        </EditForm>
 
         @if (Users.Count == 0)
         {
@@ -55,6 +108,7 @@ else
                     <tbody>
                         @foreach (var user in Users)
                         {
+                            var isDeleting = deletingUsers.Contains(user.Id);
                             <tr>
                                 <td data-label="ФИО">
                                     <div class="cell-primary">@user.FullName</div>
@@ -73,9 +127,12 @@ else
                                     </div>
                                 </td>
                                 <td data-label="Создан">@user.CreatedAt.ToString("g")</td>
-                                <td>
+                                <td class="table-actions">
                                     <button class="ghost" disabled="@user.IsSaving" @onclick="() => SaveRoleAsync(user)">
                                         @(user.IsSaving ? "Сохраняем..." : "Обновить роль")
+                                    </button>
+                                    <button class="danger ghost" aria-disabled="@isDeleting" @onclick="() => DeleteUserAsync(user)">
+                                        @(isDeleting ? "Удаляем..." : "Удалить")
                                     </button>
                                 </td>
                             </tr>
@@ -93,9 +150,15 @@ else
     private string? Notification;
     private string NotificationStyle { get; set; } = "info";
     private bool IsLoading { get; set; } = true;
+    private readonly AdminUserCreateModel NewUser = new();
+    private EditContext? newUserContext;
+    private bool isCreatingUser;
+    private readonly HashSet<int> deletingUsers = new();
+    private int currentUserId;
 
     protected override async Task OnInitializedAsync()
     {
+        newUserContext = new EditContext(NewUser);
         await LoadAsync();
     }
 
@@ -104,7 +167,18 @@ else
         try
         {
             Roles = (await LookupService.GetRolesAsync()).ToList();
+            if (string.IsNullOrEmpty(NewUser.RoleName))
+            {
+                NewUser.RoleName = Roles.FirstOrDefault()?.Name ?? string.Empty;
+            }
             Users = (await AdminUserService.GetUsersAsync()).Select(u => new EditableUser(u)).ToList();
+
+            var state = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var idValue = state.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (int.TryParse(idValue, out var parsedId))
+            {
+                currentUserId = parsedId;
+            }
         }
         catch (InvalidOperationException ex)
         {
@@ -123,6 +197,12 @@ else
         }
     }
 
+    private async Task ReloadUsersAsync()
+    {
+        var loaded = await AdminUserService.GetUsersAsync();
+        Users = loaded.Select(u => new EditableUser(u)).ToList();
+    }
+
     private async Task SaveRoleAsync(EditableUser user)
     {
         Notification = null;
@@ -131,11 +211,10 @@ else
 
         try
         {
-            await AdminUserService.UpdateUserRoleAsync(user.Id, user.SelectedRole);
+            await AdminUserService.UpdateUserRoleAsync(user.Id, user.SelectedRole, currentUserId);
 
-            var selected = Roles.FirstOrDefault(r => r.Name == user.SelectedRole);
-            user.RoleName = selected?.Name ?? user.SelectedRole;
-            user.RoleDisplayName = selected?.DisplayName ?? user.RoleDisplayName;
+            await ReloadUsersAsync();
+
             Notification = $"Роль пользователя {user.FullName} обновлена.";
             NotificationStyle = "success";
         }
@@ -155,6 +234,92 @@ else
             user.IsSaving = false;
         }
     }
+
+    private async Task CreateUserAsync()
+    {
+        Notification = null;
+        NotificationStyle = "info";
+
+        if (newUserContext is not null && !newUserContext.Validate())
+        {
+            return;
+        }
+
+        isCreatingUser = true;
+
+        try
+        {
+            var created = await AdminUserService.CreateUserAsync(NewUser);
+            Users.Add(new EditableUser(created));
+            Notification = "Пользователь успешно добавлен.";
+            NotificationStyle = "success";
+
+            // Пересоздаём контекст, чтобы очистить валидационные сообщения
+            newUserContext = new EditContext(NewUser);
+            NewUser.LastName = string.Empty;
+            NewUser.FirstName = string.Empty;
+            NewUser.MiddleName = null;
+            NewUser.Email = string.Empty;
+            NewUser.Phone = null;
+            NewUser.Password = string.Empty;
+            NewUser.RoleName = Roles.FirstOrDefault()?.Name ?? string.Empty;
+        }
+        catch (InvalidOperationException ex)
+        {
+            Notification = ex.Message;
+            NotificationStyle = "error";
+        }
+        catch (Exception ex)
+        {
+            Notification = DatabaseErrorMessages.Resolve(ex);
+            NotificationStyle = "error";
+            Logger.LogError(ex, "Ошибка при создании пользователя");
+        }
+        finally
+        {
+            isCreatingUser = false;
+        }
+    }
+
+    private async Task DeleteUserAsync(EditableUser user)
+    {
+        if (IsSameUser(user))
+        {
+            Notification = "Нельзя удалить собственную учётную запись.";
+            NotificationStyle = "error";
+            return;
+        }
+
+        if (!deletingUsers.Add(user.Id))
+        {
+            // Предохраняемся от повторных кликов, даже если кнопка не выглядит заблокированной для пользователя
+            return;
+        }
+        try
+        {
+            await AdminUserService.DeleteUserAsync(user.Id, currentUserId);
+            await ReloadUsersAsync();
+            Notification = $"Пользователь {user.FullName} удалён.";
+            NotificationStyle = "success";
+        }
+        catch (InvalidOperationException ex)
+        {
+            Notification = ex.Message;
+            NotificationStyle = "error";
+        }
+        catch (Exception ex)
+        {
+            Notification = DatabaseErrorMessages.Resolve(ex);
+            NotificationStyle = "error";
+            Logger.LogError(ex, "Ошибка при удалении пользователя {UserId}", user.Id);
+        }
+        finally
+        {
+            deletingUsers.Remove(user.Id);
+        }
+    }
+
+    private bool IsSameUser(EditableUser user) => user.Id == currentUserId;
 
     private class EditableUser
     {

@@ -51,38 +51,48 @@ else
                 <article class="card">
                     @if (!string.IsNullOrEmpty(item.PrimaryPhoto))
                     {
-                        <img src="@item.PrimaryPhoto" alt="Фото" />
+                        <a class="card-photo" href="/real-estate/@item.Id">
+                            <img src="@item.PrimaryPhoto" alt="Фото объекта" />
+                        </a>
                     }
-                    <div class="meta-line">
-                        <span class="tag-pill primary">@item.Type</span>
-                        <span class="tag-pill">@item.District</span>
-                    </div>
-                    <h2>@item.Address</h2>
-                    <div class="meta-line">
-                        <span>@item.Rooms-комн. · @item.Area м²</span>
-                        <span>Этаж @item.Floor/@item.TotalFloors</span>
-                    </div>
-                    <p class="price">@item.Price.ToString("N0") ₽</p>
-                    <div class="meta-line">
-                        <span class="small-text">Риелтор: @item.Agent</span>
-                        <div class="tags">
-                            @if (item.HasBalcony)
-                            {
-                                <span class="tag-pill">Балкон</span>
-                            }
-                            @if (item.HasParking)
-                            {
-                                <span class="tag-pill">Парковка</span>
-                            }
-                            @if (item.HasElevator)
-                            {
-                                <span class="tag-pill">Лифт</span>
-                            }
+
+                    <div class="card-content">
+                        <div class="meta-line">
+                            <span class="tag-pill primary">@item.Type</span>
+                            <span class="tag-pill">@item.District</span>
                         </div>
-                    </div>
-                    <div class="meta-line" style="margin-top:0.5rem;">
-                        <a class="primary ghost" href="/real-estate/@item.Id">Открыть карточку</a>
-                        <button class="ghost" @onclick="() => RemoveFavoriteAsync(item.Id)">Убрать</button>
+
+                        <h2>@item.Address</h2>
+
+                        <div class="meta-line">
+                            <span>@item.Rooms-комн. · @item.Area м²</span>
+                            <span>Этаж @item.Floor/@item.TotalFloors</span>
+                        </div>
+
+                        <p class="price">@item.Price.ToString("N0") ₽</p>
+
+                        <div class="meta-line">
+                            <div class="tags">
+                                @if (item.HasBalcony)
+                                {
+                                    <span class="tag-pill">Балкон</span>
+                                }
+                                @if (item.HasParking)
+                                {
+                                    <span class="tag-pill">Парковка</span>
+                                }
+                                @if (item.HasElevator)
+                                {
+                                    <span class="tag-pill">Лифт</span>
+                                }
+                            </div>
+                            <span class="small-text">Риелтор: @item.Agent</span>
+                        </div>
+
+                        <div class="card-actions">
+                            <a class="ghost" href="/real-estate/@item.Id">Подробнее</a>
+                            <button class="ghost" @onclick="() => RemoveFavoriteAsync(item.Id)">Убрать</button>
+                        </div>
                     </div>
                 </article>
             }

@@ -70,11 +70,12 @@ else
             @if (activePhotos.Count > 0)
             {
                 <div class="photo-grid">
-                    @foreach (var photo in activePhotos)
+                    @for (var index = 0; index < activePhotos.Count; index++)
                     {
-                        <a href="@photo.FilePath" target="_blank" rel="noopener noreferrer">
+                        var photo = activePhotos[index];
+                        <button type="button" class="photo-thumb" @onclick="() => OpenGallery(index)">
                             <img src="@photo.FilePath" alt="Фото объекта" />
-                        </a>
+                        </button>
                     }
                 </div>
             }
@@ -151,6 +152,23 @@ else
             }
         </div>
     </div>
+
+    @if (isGalleryOpen && activePhotos.Count > 0)
+    {
+        var openPhoto = activePhotos[activePhotoIndex];
+        <div class="photo-modal" role="dialog" aria-label="Просмотр фотографии">
+            <div class="photo-modal__backdrop" @onclick="CloseGallery"></div>
+            <div class="photo-modal__content">
+                <button type="button" class="photo-modal__close" @onclick="CloseGallery" aria-label="Закрыть">×</button>
+                <img src="@openPhoto.FilePath" alt="Фото объекта" />
+                @if (activePhotos.Count > 1)
+                {
+                    <button type="button" class="photo-modal__nav prev" @onclick="PreviousPhoto" aria-label="Предыдущее фото">‹</button>
+                    <button type="button" class="photo-modal__nav next" @onclick="NextPhoto" aria-label="Следующее фото">›</button>
+                }
+            </div>
+        </div>
+    }
 }
 
 @code {
@@ -170,6 +188,8 @@ else
     private decimal monthlyPayment;
     private bool favoriteStatusPending;
     private bool canEdit;
+    private bool isGalleryOpen;
+    private int activePhotoIndex;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -209,6 +229,8 @@ else
                 price = item.Price;
                 downPayment = item.Price * 0.2m;
                 activePhotos = item.Photos?.Where(p => p.DeletedAt == null).ToList() ?? new();
+                isGalleryOpen = false;
+                activePhotoIndex = 0;
                 await EvaluateEditPermissionsAsync(item);
                 Recalculate();
             }
@@ -282,6 +304,37 @@ else
         var latitude = lat.ToString(CultureInfo.InvariantCulture);
         var longitude = lng.ToString(CultureInfo.InvariantCulture);
         return $"https://www.openstreetmap.org/?mlat={latitude}&mlon={longitude}#map=17/{latitude}/{longitude}";
+    }
+
+    private void OpenGallery(int index)
+    {
+        activePhotoIndex = Math.Clamp(index, 0, Math.Max(activePhotos.Count - 1, 0));
+        isGalleryOpen = activePhotos.Count > 0;
+    }
+
+    private void CloseGallery()
+    {
+        isGalleryOpen = false;
+    }
+
+    private void NextPhoto()
+    {
+        if (!isGalleryOpen || activePhotos.Count == 0)
+        {
+            return;
+        }
+
+        activePhotoIndex = (activePhotoIndex + 1) % activePhotos.Count;
+    }
+
+    private void PreviousPhoto()
+    {
+        if (!isGalleryOpen || activePhotos.Count == 0)
+        {
+            return;
+        }
+
+        activePhotoIndex = (activePhotoIndex - 1 + activePhotos.Count) % activePhotos.Count;
     }
 
     private decimal PriceValue

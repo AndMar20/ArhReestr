@@ -150,7 +150,9 @@ else
                     <article class="card">
                         @if (!string.IsNullOrEmpty(item.PrimaryPhoto))
                         {
-                            <img src="@item.PrimaryPhoto" alt="Фото" />
+                            <a class="card-photo" href="/real-estate/@item.Id">
+                                <img src="@item.PrimaryPhoto" alt="Фото объекта" />
+                            </a>
                         }
                         <div class="card-content">
                             <div class="meta-line">
@@ -167,8 +169,7 @@ else
 
                             <p class="price">@item.Price.ToString("N0") ₽</p>
 
-                            <div class="meta-line">
-                                <span class="small-text">Риелтор: @item.Agent</span>
+                            <div class="meta-line" >
                                 <div class="tags">
                                     @if (item.HasBalcony)
                                     {
@@ -183,10 +184,6 @@ else
                                         <span class="tag-pill">Лифт</span>
                                     }
                                 </div>
-                            </div>
-
-                            <div class="meta-line">
-                                <span class="small-text">Оценка ипотеки: @CalculateMonthlyPayment(item.Price).ToString("N0") ₽/мес</span>
                             </div>
 
                             <div class="card-actions">
@@ -410,6 +407,11 @@ else
     private void OnFilterFieldChanged(object? sender, FieldChangedEventArgs e)
     {
         Filter.Page = 1;
+        if (e.FieldIdentifier.FieldName == nameof(Filter.SortBy))
+        {
+            return;
+        }
+
         _ = ScheduleFilterAsync();
     }
 
@@ -418,6 +420,7 @@ else
         Filter.HasBalcony = balconyRequired ? true : null;
         Filter.HasParking = parkingRequired ? true : null;
         Filter.HasElevator = elevatorRequired ? true : null;
+        Filter.SortDescending = sortDirection == "desc";
 
         Filter.Page = 1;
 
@@ -595,7 +598,8 @@ else
     private Task OnSortChanged(ChangeEventArgs _)
     {
         Filter.Page = 1;
-        return LoadAsync();
+        Filter.SortDescending = sortDirection == "desc";
+        return OnFilterAsync();
     }
 
     private Task OnSortDirectionChanged(ChangeEventArgs args)
@@ -604,7 +608,7 @@ else
         sortDirection = value;
         Filter.SortDescending = value == "desc";
         Filter.Page = 1;
-        return LoadAsync();
+        return OnFilterAsync();
     }
 
     private Task OnAmenitiesChangedAsync(ChangeEventArgs _)

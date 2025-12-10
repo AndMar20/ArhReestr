@@ -80,34 +80,37 @@
                                     <button @onclick="() => SelectInteraction(interaction)">Изменить</button>
                                 </td>
                             </tr>
+                            @if (SelectedInteraction?.Id == interaction.Id)
+                            {
+                                <tr class="interaction-editor">
+                                    <td colspan="6">
+                                        <div class="panel-section">
+                                            <p class="small-text">
+                                                Клиент: <strong>@SelectedInteraction.Client</strong><br />
+                                                Телефон: <strong>@SelectedInteraction.ClientPhone</strong>
+                                            </p>
+                                            <EditForm Model="UpdateModel" OnValidSubmit="UpdateAsync" class="form-stack" FormName="interactionUpdateForm">
+                                                <h3>Обновить взаимодействие #@SelectedInteraction.Id</h3>
+                                                <label>Статус
+                                                    <InputSelect @bind-Value="UpdateModel.StatusId">
+                                                        @foreach (var status in Statuses)
+                                                        {
+                                                            <option value="@status.Id">@status.Name</option>
+                                                        }
+                                                    </InputSelect>
+                                                </label>
+                                                <label>Комментарий
+                                                    <InputTextArea @bind-Value="UpdateModel.Notes" rows="3" />
+                                                </label>
+                                                <button type="submit">Сохранить</button>
+                                            </EditForm>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
                         }
                     </tbody>
                 </table>
-            </div>
-        }
-
-        @if (SelectedInteraction is not null)
-        {
-            <div class="panel-section">
-                <p class="small-text">
-                    Клиент: <strong>@SelectedInteraction.Client</strong><br />
-                    Телефон: <strong>@SelectedInteraction.ClientPhone</strong>
-                </p>
-                <EditForm Model="UpdateModel" OnValidSubmit="UpdateAsync" class="form-stack" FormName="interactionUpdateForm">
-                    <h3>Обновить взаимодействие #@SelectedInteraction.Id</h3>
-                    <label>Статус
-                        <InputSelect @bind-Value="UpdateModel.StatusId">
-                            @foreach (var status in Statuses)
-                            {
-                                <option value="@status.Id">@status.Name</option>
-                            }
-                        </InputSelect>
-                    </label>
-                    <label>Комментарий
-                        <InputTextArea @bind-Value="UpdateModel.Notes" rows="3" />
-                    </label>
-                    <button type="submit">Сохранить</button>
-                </EditForm>
             </div>
         }
     </div>

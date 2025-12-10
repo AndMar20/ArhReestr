@@ -173,6 +173,40 @@ public class InteractionService
     }
 
     /// <summary>
+    /// Полное обновление обращения со стороны администратора: смена статуса, агента и комментария.
+    /// </summary>
+    public async Task UpdateByAdminAsync(AdminInteractionUpdateRequest request, CancellationToken cancellationToken = default)
+    {
+        if (request.AgentId <= 0)
+        {
+            throw new InvalidOperationException("Нужно выбрать риелтора для обращения");
+        }
+
+        try
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+
+            var interaction = await context.Interactions.FirstOrDefaultAsync(i => i.Id == request.InteractionId, cancellationToken);
+            if (interaction is null)
+            {
+                throw new InvalidOperationException("Взаимодействие не найдено");
+            }
+
+            interaction.StatusId = request.StatusId;
+            interaction.AgentId = request.AgentId;
+            interaction.Notes = request.Notes;
+            interaction.UpdatedAt = _timeProvider.GetUtcNow().UtcDateTime;
+
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Не удалось обновить взаимодействие {Id} администратором", request.InteractionId);
+            throw;
+        }
+    }
+
+    /// <summary>
     /// Создаёт новое обращение и выставляет первую стадию статуса.
     /// </summary>
     public async Task<int> CreateInteractionAsync(int clientId, int agentId, int realEstateId, string? notes, CancellationToken cancellationToken = default)
