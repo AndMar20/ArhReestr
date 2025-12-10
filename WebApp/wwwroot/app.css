@@ -44,7 +44,7 @@ img {
     position: sticky;
     top: 0;
     z-index: 10;
-    backdrop-: blur(12px);
+    backdrop-filter: blur(12px);
     background: rgba(255, 255, 255, 0.92);
     border-bottom: 1px solid #e5e9f1;
     padding-top: env(safe-area-inset-top, 0);
@@ -114,6 +114,7 @@ img {
     color: var(--primary-dark);
     letter-spacing: 0.01em;
     flex-shrink: 0;
+    margin-left: 1rem;
 }
 
 .brand-logo {
@@ -475,11 +476,11 @@ input, select, textarea {
     align-items: start;
 }
 
-    .split-card .highlight {
-        background: var(--primary-light);
-        border: 1px solid rgba(0, 96, 100, 0.12);
-        box-shadow: none;
-    }
+.split-card .highlight {
+    background: var(--primary-light);
+    border: 1px solid rgba(0, 96, 100, 0.12);
+    box-shadow: none;
+}
 
 .muted {
     color: var(--muted);
@@ -759,19 +760,7 @@ input, select, textarea {
     .nav-toggle {
         display: inline-flex;
         margin-left: auto;
-    }
-
-    .nav-menu {
-        display: none;
-        flex-direction: column;
-        align-items: flex-end;
-        width: 100%;
-        gap: 0.75rem;
-        background: #fff;
-        border: 1px solid #e5e9f1;
-        border-radius: 14px;
-        padding: 0.75rem;
-        box-shadow: 0 18px 40px rgba(0, 96, 100, 0.12);
+        margin-right: 1rem
     }
 
     .nav-menu {
@@ -788,9 +777,10 @@ input, select, textarea {
         margin-top: 0.35rem;
     }
 
-        .nav-menu.open {
-            display: flex;
-        }
+    .nav-menu.open {
+        display: flex;
+
+    }
 
     .top-bar nav {
         width: 100%;
@@ -812,10 +802,10 @@ input, select, textarea {
         gap: 0.5rem;
     }
 
-        .authorize-block form, .authorize-block a, .login-actions form {
-            width: auto;
-            align-self: flex-end;
-        }
+    .authorize-block form, .authorize-block a, .login-actions form {
+        width: auto;
+        align-self: flex-end;
+    }
 
     .two-col {
         grid-template-columns: 1fr;
@@ -980,7 +970,7 @@ input, select, textarea {
         gap: 0.25rem;
     }
 
-    .s-card, .panel, .card, .table-wrapper, .info-card {
+    .s-card, .panel, .table-wrapper, .info-card {
         padding: 1rem;
     }
 
