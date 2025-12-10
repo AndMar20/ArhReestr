@@ -2,7 +2,7 @@ using DataLayer;
 using DataLayer.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-usin WebApp.Infrastructure;
+using WebApp.Infrastructure;
 
 namespace WebApp.Identity;
 
