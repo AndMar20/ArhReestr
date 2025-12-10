@@ -6,6 +6,8 @@
 @inject RealEstateService RealEstateService
 @inject FavoriteService FavoriteService
 @inject AuthenticationStateProvider AuthenticationStateProvider
+@inject InteractionService InteractionService
+@inject NavigationManager NavigationManager
 
 <PageTitle>Карточка объекта</PageTitle>
 
@@ -47,6 +49,9 @@ else
                     <span class="tag-pill">Лифт @(item.House?.HasElevator == true ? "есть" : "нет")</span>
                 </div>
                 <div class="card-actions" style="margin-top: 0.5rem;">
+                    <button @onclick="ContactAsync" disabled="@isContacting">
+                        @(isContacting ? "Отправка..." : "Оставить заявку")
+                    </button>
                     <button class="icon-button favorite-button @(isFavorite ? "active" : string.Empty)" @onclick="ToggleFavoriteAsync">
                         <span aria-hidden="true">★</span>
                         <span class="sr-only">@(isFavorite ? "Убрать из избранного" : "Добавить в избранное")</span>
@@ -169,6 +174,10 @@ else
             </div>
         </div>
     }
+    @if (!string.IsNullOrWhiteSpace(contactMessage))
+    {
+        <div class="alert @contactMessageStyle">@contactMessage</div>
+    }
 }
 
 @code {
@@ -190,6 +199,9 @@ else
     private bool canEdit;
     private bool isGalleryOpen;
     private int activePhotoIndex;
+    private bool isContacting;
+    private string? contactMessage;
+    private string contactMessageStyle = "info";
 
     protected override async Task OnParametersSetAsync()
     {
@@ -253,6 +265,59 @@ else
     {
         var added = await FavoriteService.ToggleAsync(Id);
         isFavorite = added;
+    }
+
+    private async Task ContactAsync()
+    {
+        if (item is null || isContacting)
+        {
+            return;
+        }
+
+        isContacting = true;
+        contactMessage = null;
+
+        var state = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        if (state.User.Identity?.IsAuthenticated != true)
+        {
+            NavigationManager.NavigateTo($"/login?returnUrl=/real-estate/{Id}");
+            isContacting = false;
+            return;
+        }
+
+        var userIdValue = state.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(userIdValue, out var userId))
+        {
+            contactMessage = "Не удалось определить пользователя.";
+            contactMessageStyle = "error";
+            isContacting = false;
+            return;
+        }
+
+        var role = state.User.FindFirst(ClaimTypes.Role)?.Value ?? "client";
+        if (role is not ("client" or "admin"))
+        {
+            contactMessage = "Только клиенты могут отправлять заявки.";
+            contactMessageStyle = "error";
+            isContacting = false;
+            return;
+        }
+
+        try
+        {
+            await InteractionService.CreateInteractionAsync(userId, item.AgentId, item.Id, "Заявка из карточки");
+            contactMessage = "Заявка отправлена. Контакты риелтора доступны в кабинете клиента.";
+            contactMessageStyle = "success";
+        }
+        catch (Exception)
+        {
+            contactMessage = "Заявка уже существует или недоступна.";
+            contactMessageStyle = "error";
+        }
+        finally
+        {
+            isContacting = false;
+        }
     }
 
     private async Task EvaluateEditPermissionsAsync(DataLayer.Models.RealEstate entity)

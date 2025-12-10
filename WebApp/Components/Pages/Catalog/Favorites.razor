@@ -1,7 +1,11 @@
 @page "/favorites"
 @inject FavoriteService FavoriteService
 @inject RealEstateService RealEstateService
+@inject InteractionService InteractionService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager NavigationManager
 @using global::System.Linq
+@using global::System.Security.Claims
 
 <PageTitle>Избранное</PageTitle>
 
@@ -86,12 +90,23 @@ else
                                     <span class="tag-pill">Лифт</span>
                                 }
                             </div>
-                            <span class="small-text">Риелтор: @item.Agent</span>
                         </div>
 
                         <div class="card-actions">
+                            <button @onclick="() => ContactAsync(item)" disabled="@(IsLoading || contactingItems.Contains(item.Id))">
+                                @(contactingItems.Contains(item.Id) ? "Отправка..." : "Оставить заявку")
+                            </button>
+
+                            <button class="icon-button favorite-button @(favoriteIds.Contains(item.Id) ? "active" : string.Empty)"
+                                    @onclick="() => ToggleFavoriteAsync(item.Id)"
+                                    disabled="@IsLoading">
+                                <span aria-hidden="true">★</span>
+                                <span class="sr-only">
+                                    @(favoriteIds.Contains(item.Id) ? "Убрать из избранного" : "Добавить в избранное")
+                                </span>
+                            </button>
+
                             <a class="ghost" href="/real-estate/@item.Id">Подробнее</a>
-                            <button class="ghost" @onclick="() => RemoveFavoriteAsync(item.Id)">Убрать</button>
                         </div>
                     </div>
                 </article>
@@ -103,6 +118,7 @@ else
 @code {
     private readonly List<int> favoriteIds = new();
     private readonly List<RealEstateSummary> favorites = new();
+    private readonly HashSet<int> contactingItems = new();
     private bool IsLoading;
     private string? Notification;
     private string NotificationStyle { get; set; } = "info";
@@ -146,15 +162,79 @@ else
         }
     }
 
-    private async Task RemoveFavoriteAsync(int id)
+    private async Task ToggleFavoriteAsync(int id)
     {
-        var removed = await FavoriteService.RemoveAsync(id);
-        if (!removed)
+        try
+        {
+            var added = await FavoriteService.ToggleAsync(id);
+            if (added)
+            {
+                favoriteIds.Add(id);
+            }
+            else
+            {
+                favoriteIds.Remove(id);
+                favorites.RemoveAll(f => f.Id == id);
+            }
+        }
+        catch (Exception)
+        {
+            Notification = "Не удалось обновить избранное.";
+            NotificationStyle = "error";
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task ContactAsync(RealEstateSummary item)
+    {
+        if (contactingItems.Contains(item.Id))
         {
             return;
         }
 
-        favoriteIds.Remove(id);
-        favorites.RemoveAll(f => f.Id == id);
+        contactingItems.Add(item.Id);
+
+        var state = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        if (state.User.Identity?.IsAuthenticated != true)
+        {
+            NavigationManager.NavigateTo("/login?returnUrl=/favorites");
+            contactingItems.Remove(item.Id);
+            return;
+        }
+
+        var userIdString = state.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(userIdString, out var userId))
+        {
+            Notification = "Не удалось определить пользователя";
+            NotificationStyle = "error";
+            contactingItems.Remove(item.Id);
+            return;
+        }
+
+        var role = state.User.FindFirst(ClaimTypes.Role)?.Value ?? "client";
+        if (role is not ("client" or "admin"))
+        {
+            Notification = "Только клиенты могут отправлять заявки";
+            NotificationStyle = "error";
+            contactingItems.Remove(item.Id);
+            return;
+        }
+
+        try
+        {
+            await InteractionService.CreateInteractionAsync(userId, item.AgentId, item.Id, "Заявка из избранного");
+            Notification = "Заявка отправлена. Контакты риелтора отображаются в кабинете клиента.";
+            NotificationStyle = "success";
+        }
+        catch (Exception)
+        {
+            Notification = "Заявка уже существует или недоступна.";
+            NotificationStyle = "error";
+        }
+        finally
+        {
+            contactingItems.Remove(item.Id);
+        }
     }
 }
