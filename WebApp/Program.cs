@@ -213,6 +213,7 @@ app.MapPost("/logout", async ([FromQuery] string? returnUrl,
 
 app.MapGet("/reports/admin.xlsx", async (ReportService service, TimeProvider timeProvider, CancellationToken token) =>
     {
+        var moscowTime = timeProvider.GetMoscowDateTime();
         var bytes = await service.BuildExcelAsync(token);
         return Results.File(bytes,
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
