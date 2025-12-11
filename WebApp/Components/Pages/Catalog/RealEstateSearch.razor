@@ -25,24 +25,18 @@
                     <button type="button" class='@GetSegmentedClass("cards")' @onclick='() => SetViewMode("cards")'>Карточки</button>
                     <button type="button" class='@GetSegmentedClass("list")' @onclick='() => SetViewMode("list")'>Список</button>
                 </div>
-                <div class="tag-pill action">@StatusText</div>
             </div>
         </div>
-
     <div class="quick-filters">
-        <span class="muted">Быстрые фильтры:</span>
+        <div class="filters-toggle">
+            <button class="ghost" type="button" @onclick="ToggleFilters">@FilterToggleText</button>
+        </div>
         <div class="chip-row">
-            <button type="button" class="chip ghost" @onclick="() => ApplyQuickFilterAsync(1, null, null, null)">1-комнатные</button>
-            <button type="button" class="chip ghost" @onclick="() => ApplyQuickFilterAsync(2, null, null, null)">2-комнатные</button>
-            <button type="button" class="chip ghost" @onclick="() => ApplyQuickFilterAsync(null, true, null, null)">С балконом</button>
-            <button type="button" class="chip ghost" @onclick="() => ApplyQuickFilterAsync(null, null, true, null)">Парковка</button>
             <button type="button" class="chip ghost reset-btn" @onclick="ResetFiltersAsync">Сбросить всё</button>
         </div>
     </div>
     <br/>
-    <div class="filters-toggle">
-        <button class="ghost" type="button" @onclick="ToggleFilters">@FilterToggleText</button>
-    </div>
+
     <EditForm EditContext="filterContext" class="@FiltersCardClass" FormName="realEstateFilterForm" OnValidSubmit="OnFilterAsync">
         <DataAnnotationsValidator />
         <ValidationSummary />
