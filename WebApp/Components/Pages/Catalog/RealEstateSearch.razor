@@ -25,7 +25,6 @@
                     <button type="button" class='@GetSegmentedClass("cards")' @onclick='() => SetViewMode("cards")'>Карточки</button>
                     <button type="button" class='@GetSegmentedClass("list")' @onclick='() => SetViewMode("list")'>Список</button>
                 </div>
-                <button class="ghost" type="button" @onclick="ResetFiltersAsync" disabled="@IsLoading">Сбросить фильтры</button>
                 <div class="tag-pill action">@StatusText</div>
             </div>
         </div>
