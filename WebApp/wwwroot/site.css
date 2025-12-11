@@ -259,7 +259,6 @@ main {
 
 .quick-filters {
     display: flex;
-    flex-direction: column;
     gap: 0.45rem;
     margin: 0.25rem 0 1rem;
 }
@@ -312,7 +311,6 @@ main {
     .segment.active {
         background: var(--primary-dark);
         color: #fff;
-        box-shadow: 0 10px 24px rgba(0, 96, 100, 0.22);
     }
 
 .s-card, .panel, .card, .table-wrapper, .info-card {
