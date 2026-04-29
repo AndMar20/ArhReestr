@@ -1,0 +1,240 @@
+@page "/favorites"
+@inject FavoriteService FavoriteService
+@inject RealEstateService RealEstateService
+@inject InteractionService InteractionService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager NavigationManager
+@using global::System.Linq
+@using global::System.Security.Claims
+
+<PageTitle>Избранное</PageTitle>
+
+<section class="hero-card">
+    <div class="section-header hero-header">
+        <div>
+            <h1 class="section-title">Избранные объекты</h1>
+            <p class="section-sub">Сохраняйте и сравнивайте интересные предложения из каталога.</p>
+        </div>
+        <div class="badge">Локально · без учётной записи</div>
+    </div>
+</section>
+
+@if (!string.IsNullOrEmpty(Notification))
+{
+    <div class="alert @NotificationStyle">@Notification</div>
+}
+
+@if (IsLoading)
+{
+    <p>Загрузка избранного...</p>
+}
+else if (favorites.Count == 0)
+{
+    <div class="panel" style="margin-top:1.5rem;">
+        <div class="section-header">
+            <div>
+                <h2>Пока пусто</h2>
+                <p class="section-sub">Добавляйте объекты из каталога и возвращайтесь к ним здесь.</p>
+            </div>
+        </div>
+        <a class="primary" href="/search">Перейти в каталог</a>
+    </div>
+}
+else
+{
+    <div class="panel" style="margin-top:1.5rem;">
+        <div class="section-header">
+            <div>
+                <h2>Сохранено @favorites.Count объектов</h2>
+                <p class="section-sub">Эти данные лежат в браузере и доступны только вам.</p>
+            </div>
+        </div>
+        <div class="cards">
+            @foreach (var item in favorites)
+            {
+                <article class="card">
+                    @if (!string.IsNullOrEmpty(item.PrimaryPhoto))
+                    {
+                        <a class="card-photo" href="/real-estate/@item.Id">
+                            <img src="@item.PrimaryPhoto" alt="Фото объекта" />
+                        </a>
+                    }
+
+                    <div class="card-content">
+                        <div class="meta-line">
+                            <span class="tag-pill primary">@item.Type</span>
+                            <span class="tag-pill">@item.District</span>
+                        </div>
+
+                        <h2>@item.Address</h2>
+
+                        <div class="meta-line">
+                            <span>@item.Rooms-комн. · @item.Area м²</span>
+                            <span>Этаж @item.Floor/@item.TotalFloors</span>
+                        </div>
+
+                        <p class="price">@item.Price.ToString("N0") ₽</p>
+
+                        <div class="meta-line">
+                            <div class="tags">
+                                @if (item.HasBalcony)
+                                {
+                                    <span class="tag-pill">Балкон</span>
+                                }
+                                @if (item.HasParking)
+                                {
+                                    <span class="tag-pill">Парковка</span>
+                                }
+                                @if (item.HasElevator)
+                                {
+                                    <span class="tag-pill">Лифт</span>
+                                }
+                            </div>
+                        </div>
+
+                        <div class="card-actions">
+                            <button @onclick="() => ContactAsync(item)" disabled="@(IsLoading || contactingItems.Contains(item.Id))">
+                                @(contactingItems.Contains(item.Id) ? "Отправка..." : "Оставить заявку")
+                            </button>
+
+                            <button class="icon-button favorite-button @(favoriteIds.Contains(item.Id) ? "active" : string.Empty)"
+                                    @onclick="() => ToggleFavoriteAsync(item.Id)"
+                                    disabled="@IsLoading">
+                                <span aria-hidden="true">★</span>
+                                <span class="sr-only">
+                                    @(favoriteIds.Contains(item.Id) ? "Убрать из избранного" : "Добавить в избранное")
+                                </span>
+                            </button>
+
+                            <a class="ghost" href="/real-estate/@item.Id">Подробнее</a>
+                        </div>
+                    </div>
+                </article>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private readonly List<int> favoriteIds = new();
+    private readonly List<RealEstateSummary> favorites = new();
+    private readonly HashSet<int> contactingItems = new();
+    private bool IsLoading;
+    private string? Notification;
+    private string NotificationStyle { get; set; } = "info";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        IsLoading = true;
+        Notification = null;
+        favorites.Clear();
+        favoriteIds.Clear();
+
+        try
+        {
+            var persisted = await FavoriteService.GetAsync();
+            favoriteIds.AddRange(persisted);
+
+            if (favoriteIds.Count > 0)
+            {
+                var summaries = await RealEstateService.GetSummariesByIdsAsync(favoriteIds);
+                favorites.AddRange(summaries.OrderBy(s => s.Address));
+            }
+        }
+        catch (InvalidOperationException ex)
+        {
+            Notification = ex.Message;
+            NotificationStyle = "error";
+        }
+        catch (Exception ex)
+        {
+            Notification = DatabaseErrorMessages.Resolve(ex);
+            NotificationStyle = "error";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async Task ToggleFavoriteAsync(int id)
+    {
+        try
+        {
+            var added = await FavoriteService.ToggleAsync(id);
+            if (added)
+            {
+                favoriteIds.Add(id);
+            }
+            else
+            {
+                favoriteIds.Remove(id);
+                favorites.RemoveAll(f => f.Id == id);
+            }
+        }
+        catch (Exception)
+        {
+            Notification = "Не удалось обновить избранное.";
+            NotificationStyle = "error";
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task ContactAsync(RealEstateSummary item)
+    {
+        if (contactingItems.Contains(item.Id))
+        {
+            return;
+        }
+
+        contactingItems.Add(item.Id);
+
+        var state = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        if (state.User.Identity?.IsAuthenticated != true)
+        {
+            NavigationManager.NavigateTo("/login?returnUrl=/favorites");
+            contactingItems.Remove(item.Id);
+            return;
+        }
+
+        var userIdString = state.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(userIdString, out var userId))
+        {
+            Notification = "Не удалось определить пользователя";
+            NotificationStyle = "error";
+            contactingItems.Remove(item.Id);
+            return;
+        }
+
+        var role = state.User.FindFirst(ClaimTypes.Role)?.Value ?? "client";
+        if (role is not ("client" or "admin"))
+        {
+            Notification = "Только клиенты могут отправлять заявки";
+            NotificationStyle = "error";
+            contactingItems.Remove(item.Id);
+            return;
+        }
+
+        try
+        {
+            await InteractionService.CreateInteractionAsync(userId, item.AgentId, item.Id, "Заявка из избранного");
+            Notification = "Заявка отправлена. Контакты риелтора отображаются в кабинете клиента.";
+            NotificationStyle = "success";
+        }
+        catch (Exception)
+        {
+            Notification = "Заявка уже существует или недоступна.";
+            NotificationStyle = "error";
+        }
+        finally
+        {
+            contactingItems.Remove(item.Id);
+        }
+    }
+}

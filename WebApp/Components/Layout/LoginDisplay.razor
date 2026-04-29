@@ -1,0 +1,15 @@
+<div class="authorize-block">
+    <AuthorizeView>
+        <Authorized>
+            <span class="user-name">@context.User.Identity?.Name</span>
+            <form method="post" action="/logout" class="logout-form">
+                <AntiforgeryToken />
+                <button type="submit" class="link-button">Выйти</button>
+            </form>
+        </Authorized>
+        <NotAuthorized>
+            <NavLink href="/login">Войти</NavLink>
+            <NavLink href="/register">Регистрация</NavLink>
+        </NotAuthorized>
+    </AuthorizeView>
+</div>

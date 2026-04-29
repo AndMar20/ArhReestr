@@ -1,0 +1,39 @@
+﻿.vs/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Build artifacts
+**/bin/
+**/obj/
+[Bb]uild/
+[Rr]elease/
+[Dd]ebug/
+
+# Test and coverage artifacts
+TestResults/
+coverage/
+coverage-*/
+*.coverage
+*.coveragexml
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+*.cache
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+
+# Rider
+*.DotSettings.user
+
+# OS files
+.DS_Store
+Thumbs.db

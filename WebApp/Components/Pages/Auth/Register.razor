@@ -1,0 +1,149 @@
+@page "/register"
+@inject UserManager<ApplicationUser> UserManager
+@inject SignInManager<ApplicationUser> SignInManager
+@inject NavigationManager NavigationManager
+@inject LookupService LookupService
+@inject ILogger<Register> Logger
+@using global::System.Text.RegularExpressions
+@using global::System.Data.Common
+@using Microsoft.EntityFrameworkCore
+
+<PageTitle>Регистрация</PageTitle>
+
+<section class="hero-card narrow">
+    <div class="section-header">
+        <div>
+            <h1 class="section-title">Создать аккаунт</h1>
+            <p class="section-sub">Заполните профиль, чтобы отслеживать заявки и договариваться о показах.</p>
+        </div>
+    </div>
+        <div class="panel">
+            @if (!string.IsNullOrEmpty(Error))
+            {
+                <div class="alert">@Error</div>
+            }
+
+            <EditForm Model="Model" OnValidSubmit="RegisterAsync" FormName="registerForm" class="form-stack">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+                <div class="grid-two">
+                    <label>Фамилия
+                        <InputText @bind-Value="Model.LastName" />
+                        <ValidationMessage For="@(() => Model.LastName)" />
+                    </label>
+                    <label>Имя
+                        <InputText @bind-Value="Model.FirstName" />
+                        <ValidationMessage For="@(() => Model.FirstName)" />
+                    </label>
+                </div>
+                <label>Отчество
+                    <InputText @bind-Value="Model.MiddleName" />
+                    <ValidationMessage For="@(() => Model.MiddleName)" />
+                </label>
+                <div class="grid-two">
+                    <label>Email
+                        <InputText @bind-Value="Model.Email" type="email" />
+                        <ValidationMessage For="@(() => Model.Email)" />
+                    </label>
+                <label>Телефон
+                    <InputText @bind-Value="Model.Phone"
+                               type="tel"
+                               inputmode="tel"
+                               pattern="[0-9+()\-\s]*" />
+                    <ValidationMessage For="@(() => Model.Phone)" />
+                </label>
+                </div>
+                <label>Пароль
+                    <InputText @bind-Value="Model.Password" type="password" />
+                    <ValidationMessage For="@(() => Model.Password)" />
+                </label>
+                <button type="submit">Зарегистрироваться</button>
+            </EditForm>
+        </div>
+</section>
+
+@code {
+    private readonly RegisterInputModel Model = new();
+    private string? Error;
+
+    // Базовая роль по умолчанию
+    private const string DefaultRoleName = "client";
+
+    protected override Task OnInitializedAsync()
+    {
+        // Никаких ролей с формы — всё выставим в RegisterAsync
+        return Task.CompletedTask;
+    }
+
+    private async Task RegisterAsync()
+    {
+        Error = null;
+        var userCreated = false;
+
+        try
+        {
+            var normalizedEmail = Model.Email.Trim().ToUpperInvariant();
+            var existingUser = await UserManager.FindByEmailAsync(normalizedEmail);
+            if (existingUser is not null)
+            {
+                Error = "Пользователь с таким email уже зарегистрирован.";
+                return;
+            }
+
+            // Ищем роль "client" через LookupService
+            var roles = await LookupService.GetRolesAsync();
+            var role = roles.FirstOrDefault(r => r.Name == DefaultRoleName);
+            if (role is null)
+            {
+                Error = "Регистрация недоступна: базовая роль клиента не найдена.";
+                return;
+            }
+
+            var user = new ApplicationUser
+            {
+                Email = Model.Email.Trim(),
+                UserName = Model.Email.Trim(),
+                NormalizedEmail = normalizedEmail,
+                NormalizedUserName = normalizedEmail,
+                PhoneNumber = Model.Phone,
+                LastName = Model.LastName,
+                FirstName = Model.FirstName,
+                MiddleName = string.IsNullOrWhiteSpace(Model.MiddleName) ? null : Model.MiddleName,
+                RoleId = role.Id,
+                RoleName = role.Name
+            };
+
+            var result = await UserManager.CreateAsync(user, Model.Password);
+            if (result.Succeeded)
+            {
+                userCreated = true;
+
+                await UserManager.AddToRoleAsync(user, role.Name);
+                await SignInManager.SignInAsync(user, isPersistent: true);
+                NavigationManager.NavigateTo("/");
+                return;
+            }
+
+            Error = string.Join("; ", result.Errors.Select(e => e.Description));
+        }
+        catch (DbUpdateException ex)
+        {
+            var message = DatabaseErrorMessages.Resolve(ex.InnerException as DbException);
+            Logger.LogError(ex, message);
+            Error = message;
+        }
+        catch (InvalidOperationException ex)
+        {
+            Logger.LogError(ex, ex.Message);
+            Error = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            var message = userCreated
+                ? "Аккаунт создан, но завершить вход не удалось. Попробуйте войти вручную."
+                : "Не удалось завершить регистрацию. Попробуйте позже.";
+            Logger.LogError(ex, message);
+            Error = message;
+        }
+    }
+}
