@@ -301,14 +301,18 @@
     {
         try
         {
-            UploadedPhotos = e.GetMultipleFiles(10).ToList();
+            var files = e.GetMultipleFiles();
+            if (files.Count > 10)
+            {
+                UploadedPhotos = files.Take(10).ToList();
+                Notification = "Можно выбрать не более 10 фотографий за раз. Будут загружены только первые 10 файлов.";
+                NotificationStyle = "error";
+                return;
+            }
+
+            UploadedPhotos = files.ToList();
             Notification = null;
-        }
-        catch (InvalidOperationException)
-        {
-            UploadedPhotos = new List<IBrowserFile>();
-            Notification = "Можно выбрать не более 10 фотографий за раз.";
-            NotificationStyle = "error";
+            NotificationStyle = "info";
         }
         catch (Exception ex)
         {

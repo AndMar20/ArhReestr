@@ -39,6 +39,11 @@
     </article>
 
     <article class="panel">
+        @if (!string.IsNullOrWhiteSpace(chatNotice))
+        {
+            <div class="alert info">@chatNotice</div>
+        }
+
         @if (selectedRealEstateId == 0)
         {
             <p class="small-text">Выберите диалог слева.</p>
@@ -61,10 +66,6 @@
             </div>
 
             <div class="form-stack">
-                @if (!string.IsNullOrWhiteSpace(chatNotice))
-                {
-                    <div class="alert info">@chatNotice</div>
-                }
                 <textarea class="input-textarea" value="@draft" @oninput="OnMessageInput" rows="@messageRows" style="resize:none;overflow:hidden;"></textarea>
                 <button type="button" class="primary" disabled="string.IsNullOrWhiteSpace(draft)" @onclick="SendAsync">Отправить</button>
             </div>
@@ -155,9 +156,21 @@
 
     private async Task SendAsync()
     {
+        if (userId <= 0)
+        {
+            chatNotice = "Не удалось определить текущего пользователя. Перезайдите в систему.";
+            return;
+        }
+
         if (selectedRealEstateId <= 0 || selectedPeerId <= 0)
         {
             chatNotice = "Сначала выберите диалог.";
+            return;
+        }
+
+        if (selectedPeerId == userId)
+        {
+            chatNotice = "Нельзя отправить сообщение самому себе.";
             return;
         }
 
