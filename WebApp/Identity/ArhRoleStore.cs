@@ -79,7 +79,7 @@ public class ArhRoleStore : IRoleStore<ApplicationRole>
     /// <summary>
     /// Возвращает имя роли.
     /// </summary>
-    public Task<string> GetRoleNameAsync(ApplicationRole role, CancellationToken cancellationToken)
+    public Task<string?> GetRoleNameAsync(ApplicationRole role, CancellationToken cancellationToken)
     {
         return Task.FromResult(role.Name ?? string.Empty);
     }
@@ -96,7 +96,7 @@ public class ArhRoleStore : IRoleStore<ApplicationRole>
     /// <summary>
     /// Возвращает нормализованное имя роли.
     /// </summary>
-    public Task<string> GetNormalizedRoleNameAsync(ApplicationRole role, CancellationToken cancellationToken)
+    public Task<string?> GetNormalizedRoleNameAsync(ApplicationRole role, CancellationToken cancellationToken)
     {
         return Task.FromResult(role.NormalizedName ?? string.Empty);
     }

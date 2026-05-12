@@ -1,6 +1,5 @@
 @page "/register"
 @inject UserManager<ApplicationUser> UserManager
-@inject SignInManager<ApplicationUser> SignInManager
 @inject NavigationManager NavigationManager
 @inject LookupService LookupService
 @inject ILogger<Register> Logger
@@ -36,7 +35,7 @@
                         <ValidationMessage For="@(() => Model.FirstName)" />
                     </label>
                 </div>
-                <label>Отчество
+                <label>Отчество (необязательно)
                     <InputText @bind-Value="Model.MiddleName" />
                     <ValidationMessage For="@(() => Model.MiddleName)" />
                 </label>
@@ -119,8 +118,7 @@
                 userCreated = true;
 
                 await UserManager.AddToRoleAsync(user, role.Name);
-                await SignInManager.SignInAsync(user, isPersistent: true);
-                NavigationManager.NavigateTo("/");
+                NavigationManager.NavigateTo("/login?registered=1", forceLoad: true);
                 return;
             }
 
@@ -128,7 +126,7 @@
         }
         catch (DbUpdateException ex)
         {
-            var message = DatabaseErrorMessages.Resolve(ex.InnerException as DbException);
+            var message = ex.InnerException is DbException dbEx ? DatabaseErrorMessages.Resolve(dbEx) : DatabaseErrorMessages.Resolve(ex);
             Logger.LogError(ex, message);
             Error = message;
         }

@@ -594,6 +594,19 @@ public class RealEstateService
             entity.Floor = model.Floor;
             entity.HasBalcony = model.HasBalcony;
 
+            if (isAdmin && model.AgentId is > 0 && model.AgentId != entity.AgentId)
+            {
+                var agentExists = await context.Users
+                    .Include(u => u.Role)
+                    .AnyAsync(u => u.Id == model.AgentId && u.DeletedAt == null && u.Role != null && u.Role.Name == "agent", cancellationToken);
+                if (!agentExists)
+                {
+                    throw new InvalidOperationException("Выбранный риелтор не найден.");
+                }
+
+                entity.AgentId = model.AgentId.Value;
+            }
+
             await context.SaveChangesAsync(cancellationToken);
         }
         catch (DbException ex)
@@ -641,6 +654,11 @@ public class RealEstateService
             throw new InvalidOperationException("Недостаточно прав для загрузки фотографий");
         }
 
+        if (string.IsNullOrWhiteSpace(_environment.WebRootPath))
+        {
+            throw new InvalidOperationException("Не удалось определить каталог wwwroot для сохранения фотографий");
+        }
+
         var directory = Path.Combine(_environment.WebRootPath, "Images", "RealEstates", entity.Id.ToString());
         Directory.CreateDirectory(directory);
 
@@ -664,13 +682,25 @@ public class RealEstateService
             var physicalPath = Path.Combine(directory, fileName);
             var relativePath = $"/Images/RealEstates/{entity.Id}/{fileName}";
 
-            await using var stream = File.Create(physicalPath);
-            await file.OpenReadStream(MaxPhotoSize).CopyToAsync(stream, cancellationToken);
+            try
+            {
+                await using var stream = File.Create(physicalPath);
+                await file.OpenReadStream(MaxPhotoSize).CopyToAsync(stream, cancellationToken);
+            }
+            catch
+            {
+                if (File.Exists(physicalPath))
+                {
+                    File.Delete(physicalPath);
+                }
+
+                throw;
+            }
 
             var photo = new RealEstatePhoto
             {
                 RealEstateId = entity.Id,
-                FileName = file.Name,
+                FileName = Path.GetFileName(file.Name),
                 FilePath = relativePath,
                 IsPrimary = !hasPrimary && savedPhotos.Count == 0,
                 DeletedAt = null

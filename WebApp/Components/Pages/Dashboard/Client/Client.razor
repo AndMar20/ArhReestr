@@ -57,7 +57,9 @@ else
                             <td data-label="Статус">@i.Status</td>
                             <td data-label="Обновлено">@i.UpdatedAt.ToString("g")</td>
                             <td data-label="Действия" class="actions-row">
-                                <a class="ghost" href="/real-estate/@i.AgentId">Подробнее</a>
+                                <a class="ghost" href="/real-estate/@i.RealEstateId">Подробнее</a>
+                                <a class="ghost" href="@($"/chat?realEstateId={i.RealEstateId}&peerId={i.AgentId}")">Чат</a>
+                                <button class="ghost" type="button" @onclick="() => CancelAsync(i.Id)">Отменить заявку</button>
                             </td>
                         </tr>
                     }
@@ -90,7 +92,7 @@ else
 
             await LoadInteractionsAsync();
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             Notification = "Ошибка при загрузке данных.";
             NotificationStyle = "error";
@@ -107,7 +109,7 @@ else
             var data = await InteractionService.GetClientInteractionsAsync(_userId);
             Interactions.AddRange(data);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             Notification = "Не удалось загрузить заявки.";
             NotificationStyle = "error";
@@ -115,6 +117,22 @@ else
         finally
         {
             IsLoading = false;
+        }
+    }
+
+    private async Task CancelAsync(int interactionId)
+    {
+        try
+        {
+            await InteractionService.CancelByClientAsync(interactionId, _userId);
+            Notification = "Заявка отменена.";
+            NotificationStyle = "info";
+            await LoadInteractionsAsync();
+        }
+        catch (Exception ex)
+        {
+            Notification = ex is InvalidOperationException ? ex.Message : "Не удалось отменить заявку.";
+            NotificationStyle = "error";
         }
     }
 }
