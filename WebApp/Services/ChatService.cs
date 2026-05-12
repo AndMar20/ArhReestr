@@ -44,7 +44,7 @@ public class ChatService
             .Include(m => m.Recipient)
             .Include(m => m.RealEstate)
             .ThenInclude(r => r.House)
-            .ThenInclude(h => h.Street)
+            .ThenInclude(h => h!.Street)
             .OrderByDescending(m => m.SentAt)
             .ToListAsync(token);
 

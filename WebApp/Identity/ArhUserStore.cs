@@ -125,7 +125,7 @@ public class ArhUserStore :
         return entity is null ? null : Map(entity);
     }
 
-    public Task<string> GetNormalizedUserNameAsync(ApplicationUser user, CancellationToken cancellationToken)
+    public Task<string?> GetNormalizedUserNameAsync(ApplicationUser user, CancellationToken cancellationToken)
     {
         return Task.FromResult(user.NormalizedUserName ?? string.Empty);
     }
@@ -135,7 +135,7 @@ public class ArhUserStore :
         return Task.FromResult(user.Id.ToString());
     }
 
-    public Task<string> GetUserNameAsync(ApplicationUser user, CancellationToken cancellationToken)
+    public Task<string?> GetUserNameAsync(ApplicationUser user, CancellationToken cancellationToken)
     {
         return Task.FromResult(user.Email ?? string.Empty);
     }

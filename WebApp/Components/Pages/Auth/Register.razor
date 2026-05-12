@@ -126,7 +126,7 @@
         }
         catch (DbUpdateException ex)
         {
-            var message = DatabaseErrorMessages.Resolve(ex.InnerException as DbException);
+            var message = ex.InnerException is DbException dbEx ? DatabaseErrorMessages.Resolve(dbEx) : DatabaseErrorMessages.Resolve(ex);
             Logger.LogError(ex, message);
             Error = message;
         }
