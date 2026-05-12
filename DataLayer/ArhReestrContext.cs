@@ -61,6 +61,10 @@ public class ArhReestrContext : DbContext
     /// Пользователи системы.
     /// </summary>
     public virtual DbSet<User> Users => Set<User>();
+    public virtual DbSet<UserFavorite> UserFavorites => Set<UserFavorite>();
+    public virtual DbSet<Notification> Notifications => Set<Notification>();
+    public virtual DbSet<ViewingSlot> ViewingSlots => Set<ViewingSlot>();
+    public virtual DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -139,6 +143,53 @@ public class ArhReestrContext : DbContext
                 .WithMany(p => p.Users)
                 .HasForeignKey(d => d.RoleId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+
+        modelBuilder.Entity<UserFavorite>(entity)
+        {
+            entity.ToTable("UserFavorites");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.UserId).HasColumnName("userId");
+            entity.Property(e => e.RealEstateId).HasColumnName("realEstateId");
+            entity.Property(e => e.CreatedAt).HasColumnName("createdAt");
+            entity.HasIndex(e => new { e.UserId, e.RealEstateId }).IsUnique();
+        });
+
+        modelBuilder.Entity<Notification>(entity)
+        {
+            entity.ToTable("Notifications");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.UserId).HasColumnName("userId");
+            entity.Property(e => e.Title).HasColumnName("title").HasMaxLength(120);
+            entity.Property(e => e.Message).HasColumnName("message").HasMaxLength(1000);
+            entity.Property(e => e.IsRead).HasColumnName("isRead");
+            entity.Property(e => e.CreatedAt).HasColumnName("createdAt");
+        });
+
+        modelBuilder.Entity<ViewingSlot>(entity)
+        {
+            entity.ToTable("ViewingSlots");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.RealEstateId).HasColumnName("realEstateId");
+            entity.Property(e => e.AgentId).HasColumnName("agentId");
+            entity.Property(e => e.ClientId).HasColumnName("clientId");
+            entity.Property(e => e.StartsAt).HasColumnName("startsAt");
+            entity.Property(e => e.EndsAt).HasColumnName("endsAt");
+            entity.Property(e => e.Status).HasColumnName("status").HasMaxLength(30);
+            entity.Property(e => e.Notes).HasColumnName("notes");
+        });
+
+        modelBuilder.Entity<ChatMessage>(entity)
+        {
+            entity.ToTable("ChatMessages");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.RealEstateId).HasColumnName("realEstateId");
+            entity.Property(e => e.SenderId).HasColumnName("senderId");
+            entity.Property(e => e.RecipientId).HasColumnName("recipientId");
+            entity.Property(e => e.Message).HasColumnName("message").HasMaxLength(4000);
+            entity.Property(e => e.SentAt).HasColumnName("sentAt");
+            entity.Property(e => e.ReadAt).HasColumnName("readAt");
         });
 
         modelBuilder.Entity<RealEstateType>(entity =>
