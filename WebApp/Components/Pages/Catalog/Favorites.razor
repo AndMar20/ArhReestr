@@ -15,7 +15,7 @@
             <h1 class="section-title">Избранные объекты</h1>
             <p class="section-sub">Сохраняйте и сравнивайте интересные предложения из каталога.</p>
         </div>
-        <div class="badge">Локально · без учётной записи</div>
+        <div class="badge">@StorageModeLabel</div>
     </div>
 </section>
 
@@ -46,7 +46,7 @@ else
         <div class="section-header">
             <div>
                 <h2>Сохранено @favorites.Count объектов</h2>
-                <p class="section-sub">Эти данные лежат в браузере и доступны только вам.</p>
+                <p class="section-sub">@StorageModeDescription</p>
             </div>
         </div>
         <div class="cards">
@@ -122,6 +122,11 @@ else
     private bool IsLoading;
     private string? Notification;
     private string NotificationStyle { get; set; } = "info";
+    private bool IsAuthenticated;
+    private string StorageModeLabel => IsAuthenticated ? "Синхронизировано с аккаунтом" : "Локально · без учётной записи";
+    private string StorageModeDescription => IsAuthenticated
+        ? "Избранное сохраняется в профиле и доступно на всех ваших устройствах."
+        : "Эти данные лежат в браузере и доступны только вам.";
 
     protected override async Task OnInitializedAsync()
     {
@@ -137,6 +142,9 @@ else
 
         try
         {
+            var state = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            IsAuthenticated = state.User.Identity?.IsAuthenticated == true;
+
             var persisted = await FavoriteService.GetAsync();
             favoriteIds.AddRange(persisted);
 

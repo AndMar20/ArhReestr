@@ -277,7 +277,7 @@
             Notification = "Статус обновлён";
             NotificationStyle = "success";
             await LoadAsync();
-            SelectedInteraction = Interactions.FirstOrDefault(i => i.Id == UpdateModel.InteractionId);
+            SelectedInteraction = null;
         }
         catch (Exception ex)
         {
