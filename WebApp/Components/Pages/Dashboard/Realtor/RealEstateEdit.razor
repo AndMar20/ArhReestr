@@ -193,15 +193,34 @@ else if (canEdit)
         else
         {
             <div class="photo-grid">
-                @foreach (var photo in Photos)
+                @for (var index = 0; index < Photos.Count; index++)
                 {
-                    <a href="@photo.FilePath" target="_blank" rel="noopener noreferrer">
+                    var photo = Photos[index];
+                    var indexCopy = index;
+                    <button type="button" class="photo-thumb" @onclick="() => OpenGallery(indexCopy)">
                         <img src="@photo.FilePath" alt="Фото объекта" />
-                    </a>
+                    </button>
                 }
             </div>
         }
     </div>
+
+    @if (isGalleryOpen && Photos.Count > 0)
+    {
+        var openPhoto = Photos[activePhotoIndex];
+        <div class="photo-modal" role="dialog" aria-label="Просмотр фотографии">
+            <div class="photo-modal__backdrop" @onclick="CloseGallery"></div>
+            <div class="photo-modal__content">
+                <button type="button" class="photo-modal__close" @onclick="CloseGallery" aria-label="Закрыть">×</button>
+                <img src="@openPhoto.FilePath" alt="Фото объекта" />
+                @if (Photos.Count > 1)
+                {
+                    <button type="button" class="photo-modal__nav prev" @onclick="PreviousPhoto" aria-label="Предыдущее фото">‹</button>
+                    <button type="button" class="photo-modal__nav next" @onclick="NextPhoto" aria-label="Следующее фото">›</button>
+                }
+            </div>
+        </div>
+    }
 }
 else
 {
@@ -227,6 +246,8 @@ else
     private string NotificationStyle = "info";
     private bool IsStreetSaving;
     private Dictionary<int, string> AgentOptions { get; set; } = new();
+    private bool isGalleryOpen;
+    private int activePhotoIndex;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -304,6 +325,8 @@ else
 
             Photos.Clear();
             Photos.AddRange(item.Photos?.Where(p => p.DeletedAt == null) ?? Enumerable.Empty<RealEstatePhoto>());
+            isGalleryOpen = false;
+            activePhotoIndex = 0;
         }
         catch (InvalidOperationException ex)
         {
@@ -413,5 +436,25 @@ else
     private void GoBack()
     {
         NavigationManager.NavigateTo($"/real-estate/{Id}");
+    }
+
+    private void OpenGallery(int index)
+    {
+        activePhotoIndex = Math.Clamp(index, 0, Math.Max(Photos.Count - 1, 0));
+        isGalleryOpen = Photos.Count > 0;
+    }
+
+    private void CloseGallery() => isGalleryOpen = false;
+
+    private void NextPhoto()
+    {
+        if (!isGalleryOpen || Photos.Count == 0) return;
+        activePhotoIndex = (activePhotoIndex + 1) % Photos.Count;
+    }
+
+    private void PreviousPhoto()
+    {
+        if (!isGalleryOpen || Photos.Count == 0) return;
+        activePhotoIndex = (activePhotoIndex - 1 + Photos.Count) % Photos.Count;
     }
 }
