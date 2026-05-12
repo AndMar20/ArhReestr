@@ -78,6 +78,7 @@
                                 <td data-label="Обновлено">@interaction.UpdatedAt.ToString("g")</td>
                                 <td class="actions-row table-actions" data-label="Действия">
                                     <button @onclick="() => SelectInteraction(interaction)">Изменить</button>
+                                    <a class="ghost" href="@($"/chat?realEstateId={interaction.RealEstateId}&peerId={interaction.ClientId}")">Чат</a>
                                 </td>
                             </tr>
                             @if (SelectedInteraction?.Id == interaction.Id)

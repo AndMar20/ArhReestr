@@ -58,6 +58,7 @@ else
                             <td data-label="Обновлено">@i.UpdatedAt.ToString("g")</td>
                             <td data-label="Действия" class="actions-row">
                                 <a class="ghost" href="/real-estate/@i.RealEstateId">Подробнее</a>
+                                <a class="ghost" href="@($"/chat?realEstateId={i.RealEstateId}&peerId={i.AgentId}")">Чат</a>
                                 <button class="ghost" type="button" @onclick="() => CancelAsync(i.Id)">Отменить заявку</button>
                             </td>
                         </tr>

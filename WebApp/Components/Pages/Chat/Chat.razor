@@ -47,22 +47,23 @@
         {
             <div class="section-header">
                 <h2>Сообщения</h2>
-                <span class="small-text">Обновление: каждые 5 сек.</span>
             </div>
             <div style="max-height:420px;overflow:auto;display:grid;gap:.5rem;">
                 @foreach (var m in messages)
                 {
-                    <div class="@(m.SenderId == userId ? "badge accent" : "badge")">
-                        <strong>@m.SenderName</strong>: @m.Message
+                    <div style="display:flex;justify-content:@(m.SenderId == userId ? "flex-start" : "flex-end");">
+                    <div class="@(m.SenderId == userId ? "badge accent" : "badge")" style="max-width:75%;">
+                        @m.Message
                         <div class="small-text">@m.SentAt.ToString("g") · @(m.ReadAt.HasValue ? "прочитано" : "доставлено")</div>
+                    </div>
                     </div>
                 }
             </div>
 
-            <EditForm Model="this" OnValidSubmit="SendAsync" class="form-stack" FormName="chatSendForm">
-                <InputTextArea @bind-Value="draft" rows="3" />
-                <button type="submit" class="primary" disabled="string.IsNullOrWhiteSpace(draft)">Отправить</button>
-            </EditForm>
+            <div class="form-stack">
+                <textarea class="input-textarea" value="@draft" @oninput="OnMessageInput" rows="@messageRows" style="resize:none;overflow:hidden;"></textarea>
+                <button type="button" class="primary" disabled="string.IsNullOrWhiteSpace(draft)" @onclick="SendAsync">Отправить</button>
+            </div>
         }
     </article>
 </div>
@@ -73,7 +74,14 @@
     private int userId;
     private int selectedRealEstateId;
     private int selectedPeerId;
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "realEstateId")]
+    public int? RealEstateId { get; set; }
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "peerId")]
+    public int? PeerId { get; set; }
     private string draft = string.Empty;
+    private int messageRows = 2;
     private PeriodicTimer? timer;
     private CancellationTokenSource? cts;
     private bool isDisposed;
@@ -83,6 +91,7 @@
         var state = await AuthStateProvider.GetAuthenticationStateAsync();
         userId = int.TryParse(state.User.FindFirstValue(ClaimTypes.NameIdentifier), out var parsed) ? parsed : 0;
         await ReloadDialogsAsync();
+        await TryOpenFromQueryAsync();
         StartPolling();
     }
 
@@ -97,6 +106,21 @@
         selectedRealEstateId = realEstateId;
         selectedPeerId = peerId;
         await ReloadMessagesAsync();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await TryOpenFromQueryAsync();
+    }
+
+    private async Task TryOpenFromQueryAsync()
+    {
+        if (RealEstateId is > 0 && PeerId is > 0)
+        {
+            selectedRealEstateId = RealEstateId.Value;
+            selectedPeerId = PeerId.Value;
+            await ReloadMessagesAsync();
+        }
     }
 
     private async Task ReloadMessagesAsync()
@@ -114,7 +138,15 @@
         if (string.IsNullOrWhiteSpace(draft)) return;
         await ChatService.SendAsync(selectedRealEstateId, userId, selectedPeerId, draft.Trim());
         draft = string.Empty;
+        messageRows = 2;
         await ReloadMessagesAsync();
+    }
+
+    private void OnMessageInput(ChangeEventArgs args)
+    {
+        draft = args.Value?.ToString() ?? string.Empty;
+        var lines = draft.Split('\n').Length;
+        messageRows = Math.Clamp(lines, 2, 8);
     }
 
     private void StartPolling()

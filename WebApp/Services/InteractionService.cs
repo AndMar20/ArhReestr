@@ -274,6 +274,7 @@ public class InteractionService
     {
         return new InteractionSummary(
             interaction.Id,
+            interaction.ClientId,
             interaction.Client?.GetFullName() ?? "",
             interaction.Agent?.GetFullName() ?? "",
             interaction.AgentId,
