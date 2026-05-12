@@ -1,0 +1,102 @@
+@page "/profile"
+@attribute [Authorize]
+@inject AuthenticationStateProvider AuthStateProvider
+@inject UserManager<ApplicationUser> UserManager
+
+<PageTitle>Мой профиль</PageTitle>
+
+<section class="hero-card narrow">
+    <div class="section-header">
+        <h1 class="section-title">Мои данные</h1>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(Notification))
+    {
+        <div class="alert @NotificationStyle">@Notification</div>
+    }
+
+    <EditForm Model="Model" OnValidSubmit="SaveAsync" class="form-stack" FormName="profileForm">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <label>Фамилия
+            <InputText @bind-Value="Model.LastName" />
+        </label>
+        <label>Имя
+            <InputText @bind-Value="Model.FirstName" />
+        </label>
+        <label>Отчество (необязательно)
+            <InputText @bind-Value="Model.MiddleName" />
+        </label>
+        <label>Телефон
+            <InputText @bind-Value="Model.PhoneNumber" type="tel" />
+        </label>
+        <label>Email
+            <InputText @bind-Value="Model.Email" type="email" disabled />
+        </label>
+
+        <button type="submit" class="primary" disabled="@IsSaving">@(IsSaving ? "Сохранение..." : "Сохранить")</button>
+    </EditForm>
+</section>
+
+@code {
+    private readonly ApplicationUser Model = new();
+    private string? Notification;
+    private string NotificationStyle = "info";
+    private bool IsSaving;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = await UserManager.GetUserAsync(state.User);
+        if (user is null)
+        {
+            Notification = "Не удалось загрузить профиль.";
+            NotificationStyle = "error";
+            return;
+        }
+
+        Model.Id = user.Id;
+        Model.LastName = user.LastName;
+        Model.FirstName = user.FirstName;
+        Model.MiddleName = user.MiddleName;
+        Model.PhoneNumber = user.PhoneNumber;
+        Model.Email = user.Email;
+    }
+
+    private async Task SaveAsync()
+    {
+        IsSaving = true;
+        try
+        {
+            var state = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = await UserManager.GetUserAsync(state.User);
+            if (user is null)
+            {
+                Notification = "Пользователь не найден.";
+                NotificationStyle = "error";
+                return;
+            }
+
+            user.LastName = Model.LastName.Trim();
+            user.FirstName = Model.FirstName.Trim();
+            user.MiddleName = string.IsNullOrWhiteSpace(Model.MiddleName) ? null : Model.MiddleName.Trim();
+            user.PhoneNumber = Model.PhoneNumber?.Trim();
+
+            var result = await UserManager.UpdateAsync(user);
+            if (!result.Succeeded)
+            {
+                Notification = string.Join("; ", result.Errors.Select(e => e.Description));
+                NotificationStyle = "error";
+                return;
+            }
+
+            Notification = "Данные успешно сохранены.";
+            NotificationStyle = "info";
+        }
+        finally
+        {
+            IsSaving = false;
+        }
+    }
+}

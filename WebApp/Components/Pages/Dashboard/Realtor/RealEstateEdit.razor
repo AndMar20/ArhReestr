@@ -3,6 +3,7 @@
 @using DataLayer.Models
 @attribute [Authorize(Policy = "RequireAgent")]
 @inject RealEstateService RealEstateService
+@inject LookupService LookupService
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
 
@@ -111,6 +112,18 @@ else if (canEdit)
                 </div>
                 <div class="form-stack">
                     <h2>Параметры объекта</h2>
+                    @if (_isAdmin)
+                    {
+                        <label>Риелтор
+                            <InputSelect @bind-Value="Model.AgentId">
+                                <option value="">Выберите риелтора</option>
+                                @foreach (var agent in AgentOptions)
+                                {
+                                    <option value="@agent.Key">@agent.Value</option>
+                                }
+                            </InputSelect>
+                        </label>
+                    }
                     <label>Тип недвижимости
                         <InputSelect @bind-Value="Model.TypeId">
                             <option value="">Выберите тип</option>
@@ -213,6 +226,7 @@ else
     private string? Notification;
     private string NotificationStyle = "info";
     private bool IsStreetSaving;
+    private Dictionary<int, string> AgentOptions { get; set; } = new();
 
     protected override async Task OnParametersSetAsync()
     {
@@ -260,6 +274,10 @@ else
                 Streets.AddRange(streets);
                 Types.AddRange(types);
             }
+            if (_isAdmin && AgentOptions.Count == 0)
+            {
+                AgentOptions = await LookupService.GetAgentsAsync();
+            }
 
             Model = new RealEstateUpdateModel
             {
@@ -280,6 +298,8 @@ else
                 Floor = item.Floor,
                 HasBalcony = item.HasBalcony,
                 Description = item.Description
+                ,
+                AgentId = item.AgentId
             };
 
             Photos.Clear();

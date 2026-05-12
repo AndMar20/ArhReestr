@@ -1,0 +1,145 @@
+@page "/chat"
+@attribute [Authorize(Roles = "agent,client,admin")]
+@using System.Security.Claims
+@implements IAsyncDisposable
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ChatService ChatService
+
+<PageTitle>Чаты</PageTitle>
+
+<section class="hero-card">
+    <div class="section-header">
+        <h1 class="section-title">Чаты по объектам</h1>
+    </div>
+</section>
+
+<div class="grid" style="grid-template-columns: 320px 1fr; gap:1rem;">
+    <article class="panel">
+        <h2>Диалоги</h2>
+        @if (dialogs.Count == 0)
+        {
+            <p class="small-text">Диалогов пока нет.</p>
+        }
+        else
+        {
+            <ul class="list-clean">
+                @foreach (var d in dialogs)
+                {
+                    <li>
+                        <button class="ghost" style="width:100%;text-align:left;" @onclick="() => OpenDialogAsync(d.RealEstateId, d.PeerId)">
+                            <strong>@d.PeerName</strong><br />
+                            <span class="small-text">@d.RealEstateAddress</span><br />
+                            <span class="small-text">@d.LastMessage</span>
+                            @if (d.HasUnread) { <span class="badge accent">new</span> }
+                        </button>
+                    </li>
+                }
+            </ul>
+        }
+    </article>
+
+    <article class="panel">
+        @if (selectedRealEstateId == 0)
+        {
+            <p class="small-text">Выберите диалог слева.</p>
+        }
+        else
+        {
+            <div class="section-header">
+                <h2>Сообщения</h2>
+                <span class="small-text">Обновление: каждые 5 сек.</span>
+            </div>
+            <div style="max-height:420px;overflow:auto;display:grid;gap:.5rem;">
+                @foreach (var m in messages)
+                {
+                    <div class="@(m.SenderId == userId ? "badge accent" : "badge")">
+                        <strong>@m.SenderName</strong>: @m.Message
+                        <div class="small-text">@m.SentAt.ToString("g") · @(m.ReadAt.HasValue ? "прочитано" : "доставлено")</div>
+                    </div>
+                }
+            </div>
+
+            <EditForm OnValidSubmit="SendAsync" class="form-stack" FormName="chatSendForm">
+                <InputTextArea @bind-Value="draft" rows="3" />
+                <button type="submit" class="primary" disabled="string.IsNullOrWhiteSpace(draft)">Отправить</button>
+            </EditForm>
+        }
+    </article>
+</div>
+
+@code {
+    private readonly List<ChatDialogItem> dialogs = new();
+    private readonly List<ChatMessageItem> messages = new();
+    private int userId;
+    private int selectedRealEstateId;
+    private int selectedPeerId;
+    private string draft = string.Empty;
+    private PeriodicTimer? timer;
+    private CancellationTokenSource? cts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthStateProvider.GetAuthenticationStateAsync();
+        userId = int.TryParse(state.User.FindFirstValue(ClaimTypes.NameIdentifier), out var parsed) ? parsed : 0;
+        await ReloadDialogsAsync();
+        StartPolling();
+    }
+
+    private async Task ReloadDialogsAsync()
+    {
+        dialogs.Clear();
+        dialogs.AddRange(await ChatService.GetDialogsAsync(userId));
+    }
+
+    private async Task OpenDialogAsync(int realEstateId, int peerId)
+    {
+        selectedRealEstateId = realEstateId;
+        selectedPeerId = peerId;
+        await ReloadMessagesAsync();
+    }
+
+    private async Task ReloadMessagesAsync()
+    {
+        if (selectedRealEstateId <= 0 || selectedPeerId <= 0) return;
+        messages.Clear();
+        messages.AddRange(await ChatService.GetMessagesAsync(userId, selectedRealEstateId, selectedPeerId));
+        await ChatService.MarkAsReadAsync(userId, selectedRealEstateId, selectedPeerId);
+        await ReloadDialogsAsync();
+        StateHasChanged();
+    }
+
+    private async Task SendAsync()
+    {
+        if (string.IsNullOrWhiteSpace(draft)) return;
+        await ChatService.SendAsync(selectedRealEstateId, userId, selectedPeerId, draft.Trim());
+        draft = string.Empty;
+        await ReloadMessagesAsync();
+    }
+
+    private void StartPolling()
+    {
+        cts = new CancellationTokenSource();
+        timer = new PeriodicTimer(TimeSpan.FromSeconds(5));
+        _ = Task.Run(async () =>
+        {
+            while (timer is not null && await timer.WaitForNextTickAsync(cts.Token))
+            {
+                await InvokeAsync(async () =>
+                {
+                    await ReloadDialogsAsync();
+                    await ReloadMessagesAsync();
+                });
+            }
+        });
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (cts is not null)
+        {
+            await cts.CancelAsync();
+            cts.Dispose();
+        }
+        timer?.Dispose();
+    }
+}
