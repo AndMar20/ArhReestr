@@ -5,8 +5,7 @@
 <div class="authorize-block">
     <AuthorizeView>
         <Authorized>
-            <span class="user-name">@DisplayName</span>
-            <NavLink href="/profile">Профиль</NavLink>
+            <NavLink class="user-name" href="/profile">@DisplayName</NavLink>
             <form method="post" action="/logout" class="logout-form">
                 <AntiforgeryToken />
                 <button type="submit" class="link-button">Выйти</button>
