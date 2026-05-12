@@ -59,7 +59,7 @@
                 }
             </div>
 
-            <EditForm OnValidSubmit="SendAsync" class="form-stack" FormName="chatSendForm">
+            <EditForm Model="this" OnValidSubmit="SendAsync" class="form-stack" FormName="chatSendForm">
                 <InputTextArea @bind-Value="draft" rows="3" />
                 <button type="submit" class="primary" disabled="string.IsNullOrWhiteSpace(draft)">Отправить</button>
             </EditForm>
@@ -76,6 +76,7 @@
     private string draft = string.Empty;
     private PeriodicTimer? timer;
     private CancellationTokenSource? cts;
+    private bool isDisposed;
 
     protected override async Task OnInitializedAsync()
     {
@@ -122,19 +123,33 @@
         timer = new PeriodicTimer(TimeSpan.FromSeconds(5));
         _ = Task.Run(async () =>
         {
-            while (timer is not null && await timer.WaitForNextTickAsync(cts.Token))
+            try
             {
-                await InvokeAsync(async () =>
+                while (!isDisposed && timer is not null && await timer.WaitForNextTickAsync(cts.Token))
                 {
-                    await ReloadDialogsAsync();
-                    await ReloadMessagesAsync();
-                });
+                    if (isDisposed) break;
+                    await InvokeAsync(async () =>
+                    {
+                        if (isDisposed) return;
+                        await ReloadDialogsAsync();
+                        await ReloadMessagesAsync();
+                    });
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Нормальная остановка polling при dispose.
+            }
+            catch (ObjectDisposedException)
+            {
+                // Компонент/таймер уже освобождён.
             }
         });
     }
 
     public async ValueTask DisposeAsync()
     {
+        isDisposed = true;
         if (cts is not null)
         {
             await cts.CancelAsync();
