@@ -48,7 +48,7 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
     {
         options.Password.RequireDigit = true;
         options.Password.RequiredLength = 6;
-        options.Password.RequireUppercase = false;
+        options.Password.RequireUppercase = true;
         options.Password.RequireLowercase = true;
         options.Password.RequireNonAlphanumeric = false;
         options.User.RequireUniqueEmail = true;
@@ -88,6 +88,9 @@ builder.Services.AddScoped<ReportService>();
 builder.Services.AddScoped<LookupService>();
 builder.Services.AddScoped<FavoriteService>();
 builder.Services.AddScoped<AdminUserService>();
+builder.Services.AddScoped<NotificationService>();
+builder.Services.AddScoped<ViewingCalendarService>();
+builder.Services.AddScoped<ChatService>();
 
 
 
