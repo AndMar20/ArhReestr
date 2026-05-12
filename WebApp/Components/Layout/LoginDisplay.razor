@@ -6,6 +6,7 @@
     <AuthorizeView>
         <Authorized>
             <span class="user-name">@DisplayName</span>
+            <NavLink href="/profile">Профиль</NavLink>
             <form method="post" action="/logout" class="logout-form">
                 <AntiforgeryToken />
                 <button type="submit" class="link-button">Выйти</button>
