@@ -1,6 +1,8 @@
 @inherits LayoutComponentBase
 @implements IDisposable
 @using Microsoft.AspNetCore.Components.Routing
+@using WebApp.Infrastructure
+@inject DatabaseHealthState DatabaseHealthState
 
 <PageTitle>АрхРеестр</PageTitle>
 
@@ -54,6 +56,12 @@
     </header>
     <main>
         <div class="container">
+            @if (!DatabaseHealthState.IsAvailable && !string.IsNullOrWhiteSpace(DatabaseHealthState.Message))
+            {
+                <div class="alert error" style="margin-top:1rem;">
+                    База данных временно недоступна: @DatabaseHealthState.Message
+                </div>
+            }
             @Body
         </div>
     </main>
