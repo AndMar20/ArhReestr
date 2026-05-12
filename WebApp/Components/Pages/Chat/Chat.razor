@@ -1,6 +1,6 @@
 @page "/chat"
 @attribute [Authorize(Roles = "agent,client,admin")]
-@using System.Security.Claims
+@using global::System.Security.Claims
 @implements IAsyncDisposable
 @inject AuthenticationStateProvider AuthStateProvider
 @inject ChatService ChatService
