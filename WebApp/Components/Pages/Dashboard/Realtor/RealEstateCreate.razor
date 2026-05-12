@@ -301,7 +301,16 @@
     {
         try
         {
-            var files = e.GetMultipleFiles();
+            IReadOnlyList<IBrowserFile> files;
+            if (e.FileCount <= 1)
+            {
+                files = e.File is null ? Array.Empty<IBrowserFile>() : new[] { e.File };
+            }
+            else
+            {
+                files = e.GetMultipleFiles(1000);
+            }
+
             if (files.Count > 10)
             {
                 UploadedPhotos = files.Take(10).ToList();
