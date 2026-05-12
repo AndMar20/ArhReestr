@@ -78,7 +78,8 @@ else
                     @for (var index = 0; index < activePhotos.Count; index++)
                     {
                         var photo = activePhotos[index];
-                        <button type="button" class="photo-thumb" @onclick="() => OpenGallery(index)">
+                        var indexCopy = index;
+                        <button type="button" class="photo-thumb" @onclick="() => OpenGallery(indexCopy)">
                             <img src="@photo.FilePath" alt="Фото объекта" />
                         </button>
                     }
