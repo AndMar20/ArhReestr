@@ -48,6 +48,9 @@
     [Parameter]
     [SupplyParameterFromQuery(Name = "error")]
     public string? ErrorCode { get; set; }
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "registered")]
+    public int? Registered { get; set; }
 
     protected override void OnParametersSet()
     {
@@ -55,6 +58,7 @@
         {
             "invalid" => "Неверный email или пароль",
             "missing" => "Укажите email и пароль",
+            _ when Registered == 1 => "Регистрация прошла успешно. Теперь войдите в аккаунт.",
             _ => null
         };
     }
