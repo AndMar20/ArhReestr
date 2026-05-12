@@ -430,7 +430,23 @@ else
 
     private void OnFilesSelected(InputFileChangeEventArgs e)
     {
-        newPhotos = e.GetMultipleFiles(10).ToList();
+        try
+        {
+            newPhotos = e.GetMultipleFiles(10).ToList();
+            Notification = null;
+        }
+        catch (InvalidOperationException)
+        {
+            newPhotos = new List<IBrowserFile>();
+            Notification = "Можно выбрать не более 10 фотографий за раз.";
+            NotificationStyle = "error";
+        }
+        catch (Exception ex)
+        {
+            newPhotos = new List<IBrowserFile>();
+            Notification = DatabaseErrorMessages.Resolve(ex);
+            NotificationStyle = "error";
+        }
     }
 
     private void GoBack()

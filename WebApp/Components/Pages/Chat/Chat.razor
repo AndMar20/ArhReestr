@@ -61,6 +61,10 @@
             </div>
 
             <div class="form-stack">
+                @if (!string.IsNullOrWhiteSpace(chatNotice))
+                {
+                    <div class="alert info">@chatNotice</div>
+                }
                 <textarea class="input-textarea" value="@draft" @oninput="OnMessageInput" rows="@messageRows" style="resize:none;overflow:hidden;"></textarea>
                 <button type="button" class="primary" disabled="string.IsNullOrWhiteSpace(draft)" @onclick="SendAsync">Отправить</button>
             </div>
@@ -85,6 +89,7 @@
     private PeriodicTimer? timer;
     private CancellationTokenSource? cts;
     private bool isDisposed;
+    private string? chatNotice;
 
     protected override async Task OnInitializedAsync()
     {
@@ -135,10 +140,17 @@
 
     private async Task SendAsync()
     {
+        if (selectedRealEstateId <= 0 || selectedPeerId <= 0)
+        {
+            chatNotice = "Сначала выберите диалог.";
+            return;
+        }
+
         if (string.IsNullOrWhiteSpace(draft)) return;
         await ChatService.SendAsync(selectedRealEstateId, userId, selectedPeerId, draft.Trim());
         draft = string.Empty;
         messageRows = 2;
+        chatNotice = null;
         await ReloadMessagesAsync();
     }
 
