@@ -12,4 +12,9 @@ public class RealEstateUpdateModel : RealEstateCreateModel
     /// </summary>
     [Range(1, int.MaxValue, ErrorMessage = "Некорректный идентификатор объекта")]
     public int Id { get; set; }
+
+    /// <summary>
+    /// Идентификатор риелтора (доступно только администратору при редактировании).
+    /// </summary>
+    public int? AgentId { get; set; }
 }

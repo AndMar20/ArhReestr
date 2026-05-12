@@ -5,9 +5,11 @@ namespace WebApp.ViewModels;
 /// </summary>
 public record InteractionSummary(
     int Id,
+    int ClientId,
     string Client,
     string Agent,
     int AgentId,
+    int RealEstateId,
     string RealEstate,
     int StatusId,
     string Status,

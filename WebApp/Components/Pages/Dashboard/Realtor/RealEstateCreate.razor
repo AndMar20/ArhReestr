@@ -141,7 +141,7 @@
                 </label>
                 <div class="form-stack">
                     <label>Фотографии
-                        <InputFile multiple OnChange="OnFilesSelected" accept="image/*" />
+                        <InputFile OnChange="OnFilesSelected" />
                     </label>
                     @if (UploadedPhotos.Count > 0)
                     {
@@ -297,9 +297,31 @@
         }
     }
 
-    private void OnFilesSelected(InputFileChangeEventArgs e)
+    private Task OnFilesSelected(InputFileChangeEventArgs e)
     {
-        UploadedPhotos = e.GetMultipleFiles(10).ToList();
+        try
+        {
+            var files = e.GetMultipleFiles(1);
+            UploadedPhotos = files.ToList();
+
+            if (UploadedPhotos.Count == 0)
+            {
+                Notification = null;
+                NotificationStyle = "info";
+                return Task.CompletedTask;
+            }
+
+            Notification = null;
+            NotificationStyle = "info";
+        }
+        catch (Exception ex)
+        {
+            UploadedPhotos = new List<IBrowserFile>();
+            Notification = DatabaseErrorMessages.Resolve(ex);
+            NotificationStyle = "error";
+        }
+
+        return Task.CompletedTask;
     }
 
     private void GoToDashboard()
