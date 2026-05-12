@@ -3,6 +3,7 @@
 @using DataLayer.Models
 @attribute [Authorize(Policy = "RequireAgent")]
 @inject RealEstateService RealEstateService
+@inject LookupService LookupService
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
 
@@ -111,6 +112,18 @@ else if (canEdit)
                 </div>
                 <div class="form-stack">
                     <h2>Параметры объекта</h2>
+                    @if (_isAdmin)
+                    {
+                        <label>Риелтор
+                            <InputSelect @bind-Value="Model.AgentId">
+                                <option value="">Выберите риелтора</option>
+                                @foreach (var agent in AgentOptions)
+                                {
+                                    <option value="@agent.Key">@agent.Value</option>
+                                }
+                            </InputSelect>
+                        </label>
+                    }
                     <label>Тип недвижимости
                         <InputSelect @bind-Value="Model.TypeId">
                             <option value="">Выберите тип</option>
@@ -180,15 +193,34 @@ else if (canEdit)
         else
         {
             <div class="photo-grid">
-                @foreach (var photo in Photos)
+                @for (var index = 0; index < Photos.Count; index++)
                 {
-                    <a href="@photo.FilePath" target="_blank" rel="noopener noreferrer">
+                    var photo = Photos[index];
+                    var indexCopy = index;
+                    <button type="button" class="photo-thumb" @onclick="() => OpenGallery(indexCopy)">
                         <img src="@photo.FilePath" alt="Фото объекта" />
-                    </a>
+                    </button>
                 }
             </div>
         }
     </div>
+
+    @if (isGalleryOpen && Photos.Count > 0)
+    {
+        var openPhoto = Photos[activePhotoIndex];
+        <div class="photo-modal" role="dialog" aria-label="Просмотр фотографии">
+            <div class="photo-modal__backdrop" @onclick="CloseGallery"></div>
+            <div class="photo-modal__content">
+                <button type="button" class="photo-modal__close" @onclick="CloseGallery" aria-label="Закрыть">×</button>
+                <img src="@openPhoto.FilePath" alt="Фото объекта" />
+                @if (Photos.Count > 1)
+                {
+                    <button type="button" class="photo-modal__nav prev" @onclick="PreviousPhoto" aria-label="Предыдущее фото">‹</button>
+                    <button type="button" class="photo-modal__nav next" @onclick="NextPhoto" aria-label="Следующее фото">›</button>
+                }
+            </div>
+        </div>
+    }
 }
 else
 {
@@ -213,6 +245,9 @@ else
     private string? Notification;
     private string NotificationStyle = "info";
     private bool IsStreetSaving;
+    private Dictionary<int, string> AgentOptions { get; set; } = new();
+    private bool isGalleryOpen;
+    private int activePhotoIndex;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -260,6 +295,10 @@ else
                 Streets.AddRange(streets);
                 Types.AddRange(types);
             }
+            if (_isAdmin && AgentOptions.Count == 0)
+            {
+                AgentOptions = await LookupService.GetAgentsAsync();
+            }
 
             Model = new RealEstateUpdateModel
             {
@@ -280,10 +319,14 @@ else
                 Floor = item.Floor,
                 HasBalcony = item.HasBalcony,
                 Description = item.Description
+                ,
+                AgentId = item.AgentId
             };
 
             Photos.Clear();
             Photos.AddRange(item.Photos?.Where(p => p.DeletedAt == null) ?? Enumerable.Empty<RealEstatePhoto>());
+            isGalleryOpen = false;
+            activePhotoIndex = 0;
         }
         catch (InvalidOperationException ex)
         {
@@ -387,11 +430,47 @@ else
 
     private void OnFilesSelected(InputFileChangeEventArgs e)
     {
-        newPhotos = e.GetMultipleFiles(10).ToList();
+        try
+        {
+            newPhotos = e.GetMultipleFiles(10).ToList();
+            Notification = null;
+        }
+        catch (InvalidOperationException)
+        {
+            newPhotos = new List<IBrowserFile>();
+            Notification = "Можно выбрать не более 10 фотографий за раз.";
+            NotificationStyle = "error";
+        }
+        catch (Exception ex)
+        {
+            newPhotos = new List<IBrowserFile>();
+            Notification = DatabaseErrorMessages.Resolve(ex);
+            NotificationStyle = "error";
+        }
     }
 
     private void GoBack()
     {
         NavigationManager.NavigateTo($"/real-estate/{Id}");
+    }
+
+    private void OpenGallery(int index)
+    {
+        activePhotoIndex = Math.Clamp(index, 0, Math.Max(Photos.Count - 1, 0));
+        isGalleryOpen = Photos.Count > 0;
+    }
+
+    private void CloseGallery() => isGalleryOpen = false;
+
+    private void NextPhoto()
+    {
+        if (!isGalleryOpen || Photos.Count == 0) return;
+        activePhotoIndex = (activePhotoIndex + 1) % Photos.Count;
+    }
+
+    private void PreviousPhoto()
+    {
+        if (!isGalleryOpen || Photos.Count == 0) return;
+        activePhotoIndex = (activePhotoIndex - 1 + Photos.Count) % Photos.Count;
     }
 }
