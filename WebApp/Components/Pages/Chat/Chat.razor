@@ -102,8 +102,15 @@
 
     private async Task ReloadDialogsAsync()
     {
-        dialogs.Clear();
-        dialogs.AddRange(await ChatService.GetDialogsAsync(userId));
+        try
+        {
+            dialogs.Clear();
+            dialogs.AddRange(await ChatService.GetDialogsAsync(userId));
+        }
+        catch (Exception ex)
+        {
+            chatNotice = $"Не удалось загрузить диалоги: {ex.Message}";
+        }
     }
 
     private async Task OpenDialogAsync(int realEstateId, int peerId)
@@ -124,6 +131,7 @@
         {
             selectedRealEstateId = RealEstateId.Value;
             selectedPeerId = PeerId.Value;
+            chatNotice = "Можно сразу написать первое сообщение в этом диалоге.";
             await ReloadMessagesAsync();
         }
     }
@@ -131,11 +139,18 @@
     private async Task ReloadMessagesAsync()
     {
         if (selectedRealEstateId <= 0 || selectedPeerId <= 0) return;
-        messages.Clear();
-        messages.AddRange(await ChatService.GetMessagesAsync(userId, selectedRealEstateId, selectedPeerId));
-        await ChatService.MarkAsReadAsync(userId, selectedRealEstateId, selectedPeerId);
-        await ReloadDialogsAsync();
-        StateHasChanged();
+        try
+        {
+            messages.Clear();
+            messages.AddRange(await ChatService.GetMessagesAsync(userId, selectedRealEstateId, selectedPeerId));
+            await ChatService.MarkAsReadAsync(userId, selectedRealEstateId, selectedPeerId);
+            await ReloadDialogsAsync();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            chatNotice = $"Не удалось загрузить сообщения: {ex.Message}";
+        }
     }
 
     private async Task SendAsync()
@@ -147,11 +162,18 @@
         }
 
         if (string.IsNullOrWhiteSpace(draft)) return;
-        await ChatService.SendAsync(selectedRealEstateId, userId, selectedPeerId, draft.Trim());
-        draft = string.Empty;
-        messageRows = 2;
-        chatNotice = null;
-        await ReloadMessagesAsync();
+        try
+        {
+            await ChatService.SendAsync(selectedRealEstateId, userId, selectedPeerId, draft.Trim());
+            draft = string.Empty;
+            messageRows = 2;
+            chatNotice = null;
+            await ReloadMessagesAsync();
+        }
+        catch (Exception ex)
+        {
+            chatNotice = $"Не удалось отправить сообщение: {ex.Message}";
+        }
     }
 
     private void OnMessageInput(ChangeEventArgs args)
@@ -187,6 +209,10 @@
             catch (ObjectDisposedException)
             {
                 // Компонент/таймер уже освобождён.
+            }
+            catch (Exception ex)
+            {
+                await InvokeAsync(() => chatNotice = $"Ошибка обновления чата: {ex.Message}");
             }
         });
     }
