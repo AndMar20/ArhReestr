@@ -8,6 +8,7 @@ public record InteractionSummary(
     string Client,
     string Agent,
     int AgentId,
+    int RealEstateId,
     string RealEstate,
     int StatusId,
     string Status,

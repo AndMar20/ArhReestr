@@ -594,6 +594,19 @@ public class RealEstateService
             entity.Floor = model.Floor;
             entity.HasBalcony = model.HasBalcony;
 
+            if (isAdmin && model.AgentId is > 0 && model.AgentId != entity.AgentId)
+            {
+                var agentExists = await context.Users
+                    .Include(u => u.Role)
+                    .AnyAsync(u => u.Id == model.AgentId && u.DeletedAt == null && u.Role != null && u.Role.Name == "agent", cancellationToken);
+                if (!agentExists)
+                {
+                    throw new InvalidOperationException("Выбранный риелтор не найден.");
+                }
+
+                entity.AgentId = model.AgentId.Value;
+            }
+
             await context.SaveChangesAsync(cancellationToken);
         }
         catch (DbException ex)
