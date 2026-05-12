@@ -297,6 +297,8 @@ CREATE TABLE `RealEstate` (
   PRIMARY KEY (`id`),
   KEY `idx_type` (`typeId`),
   KEY `idx_price_area` (`price`,`area`),
+  KEY `idx_real_estate_deleted_created` (`deletedAt`,`createdAt`),
+  KEY `idx_real_estate_house_deleted` (`houseId`,`deletedAt`),
   KEY `idx_agent` (`agentId`),
   KEY `idx_house` (`houseId`),
   CONSTRAINT `RealEstate_fk_agent` FOREIGN KEY (`agentId`) REFERENCES `Users` (`id`) ON DELETE CASCADE,
@@ -362,6 +364,7 @@ CREATE TABLE `RealEstatePhotos` (
   `deletedAt` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `idx_real_estate` (`realEstateId`),
+  KEY `idx_real_estate_primary_not_deleted` (`realEstateId`,`isPrimary`,`deletedAt`),
   CONSTRAINT `RealEstatePhotos_fk_real_estate` FOREIGN KEY (`realEstateId`) REFERENCES `RealEstate` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=91 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -491,6 +494,8 @@ CREATE TABLE `Interactions` (
   KEY `idx_real_estate` (`realEstateId`),
   KEY `idx_status` (`statusId`),
   KEY `idx_contacted` (`contactedAt`),
+  KEY `idx_interactions_updated` (`updatedAt`),
+  KEY `idx_interactions_agent_status_updated` (`agentId`,`statusId`,`updatedAt`),
   KEY `idx_interactions_status_time` (`statusId`,`contactedAt`),
   CONSTRAINT `Interactions_fk_agent` FOREIGN KEY (`agentId`) REFERENCES `Users` (`id`) ON DELETE CASCADE,
   CONSTRAINT `Interactions_fk_client` FOREIGN KEY (`clientId`) REFERENCES `Users` (`id`) ON DELETE CASCADE,
@@ -517,6 +522,153 @@ INSERT INTO `Interactions` VALUES
 (9,6,3,21,1,'2025-11-20 10:50:00','2025-11-20 10:50:00','Интерес к дому в Варавино-Фактории, отправлены документы.',NULL),
 (10,4,2,25,4,'2025-11-28 19:00:00','2025-11-28 19:00:00','Клиент выбрал таунхаус, готовится сделка.',NULL);
 /*!40000 ALTER TABLE `Interactions` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `UserFavorites`
+--
+
+DROP TABLE IF EXISTS `UserFavorites`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `UserFavorites` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `userId` int NOT NULL,
+  `realEstateId` int NOT NULL,
+  `createdAt` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_user_favorite` (`userId`,`realEstateId`),
+  KEY `idx_favorite_real_estate` (`realEstateId`),
+  CONSTRAINT `UserFavorites_fk_user` FOREIGN KEY (`userId`) REFERENCES `Users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `UserFavorites_fk_real_estate` FOREIGN KEY (`realEstateId`) REFERENCES `RealEstate` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `UserFavorites`
+--
+
+LOCK TABLES `UserFavorites` WRITE;
+/*!40000 ALTER TABLE `UserFavorites` DISABLE KEYS */;
+INSERT INTO `UserFavorites` VALUES
+(1,4,1,'2025-12-02 10:00:00'),
+(2,4,6,'2025-12-03 15:30:00'),
+(3,5,8,'2025-12-05 09:15:00'),
+(4,6,11,'2025-12-06 12:45:00');
+/*!40000 ALTER TABLE `UserFavorites` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `Notifications`
+--
+
+DROP TABLE IF EXISTS `Notifications`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `Notifications` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `userId` int NOT NULL,
+  `title` varchar(120) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `message` varchar(1000) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `isRead` tinyint(1) DEFAULT '0',
+  `createdAt` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_notifications_user_time` (`userId`,`createdAt`),
+  KEY `idx_notifications_user_unread` (`userId`,`isRead`,`createdAt`),
+  CONSTRAINT `Notifications_fk_user` FOREIGN KEY (`userId`) REFERENCES `Users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `Notifications`
+--
+
+LOCK TABLES `Notifications` WRITE;
+/*!40000 ALTER TABLE `Notifications` DISABLE KEYS */;
+INSERT INTO `Notifications` VALUES
+(1,4,'Новый статус заявки','По объекту #1 назначена встреча с риелтором.',0,'2025-12-05 11:45:00'),
+(2,5,'Показ подтвержден','Показ по объекту #8 подтвержден на субботу, 14:00.',1,'2025-12-06 10:10:00');
+/*!40000 ALTER TABLE `Notifications` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `ViewingSlots`
+--
+
+DROP TABLE IF EXISTS `ViewingSlots`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `ViewingSlots` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `realEstateId` int NOT NULL,
+  `agentId` int NOT NULL,
+  `clientId` int DEFAULT NULL,
+  `startsAt` datetime NOT NULL,
+  `endsAt` datetime NOT NULL,
+  `status` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'available',
+  `notes` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  PRIMARY KEY (`id`),
+  KEY `idx_slots_real_estate` (`realEstateId`),
+  KEY `idx_slots_agent_time` (`agentId`,`startsAt`),
+  KEY `idx_slots_real_estate_time` (`realEstateId`,`startsAt`),
+  KEY `idx_slots_client` (`clientId`),
+  CONSTRAINT `ViewingSlots_fk_real_estate` FOREIGN KEY (`realEstateId`) REFERENCES `RealEstate` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `ViewingSlots_fk_agent` FOREIGN KEY (`agentId`) REFERENCES `Users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `ViewingSlots_fk_client` FOREIGN KEY (`clientId`) REFERENCES `Users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `ViewingSlots`
+--
+
+LOCK TABLES `ViewingSlots` WRITE;
+/*!40000 ALTER TABLE `ViewingSlots` DISABLE KEYS */;
+INSERT INTO `ViewingSlots` VALUES
+(1,1,2,4,'2025-12-14 14:00:00','2025-12-14 14:30:00','booked','Клиент подтвердил присутствие.'),
+(2,6,2,NULL,'2025-12-15 18:00:00','2025-12-15 18:30:00','available','Свободный вечерний слот.'),
+(3,8,3,5,'2025-12-16 13:00:00','2025-12-16 13:45:00','booked','Показ с обсуждением ипотеки.');
+/*!40000 ALTER TABLE `ViewingSlots` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `ChatMessages`
+--
+
+DROP TABLE IF EXISTS `ChatMessages`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `ChatMessages` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `realEstateId` int NOT NULL,
+  `senderId` int NOT NULL,
+  `recipientId` int NOT NULL,
+  `message` varchar(4000) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `sentAt` datetime DEFAULT CURRENT_TIMESTAMP,
+  `readAt` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_chat_real_estate` (`realEstateId`),
+  KEY `idx_chat_sender` (`senderId`),
+  KEY `idx_chat_recipient` (`recipientId`),
+  KEY `idx_chat_dialog_time` (`senderId`,`recipientId`,`sentAt`),
+  KEY `idx_chat_time` (`sentAt`),
+  CONSTRAINT `ChatMessages_fk_real_estate` FOREIGN KEY (`realEstateId`) REFERENCES `RealEstate` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `ChatMessages_fk_sender` FOREIGN KEY (`senderId`) REFERENCES `Users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `ChatMessages_fk_recipient` FOREIGN KEY (`recipientId`) REFERENCES `Users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `ChatMessages`
+--
+
+LOCK TABLES `ChatMessages` WRITE;
+/*!40000 ALTER TABLE `ChatMessages` DISABLE KEYS */;
+INSERT INTO `ChatMessages` VALUES
+(1,1,4,2,'Здравствуйте! Удобно посмотреть квартиру в субботу?', '2025-12-05 11:40:00', '2025-12-05 11:42:00'),
+(2,1,2,4,'Да, могу в 14:00. Подтверждаю показ.', '2025-12-05 11:44:00', NULL),
+(3,8,5,3,'Добрый день, пришлите пожалуйста планировку.', '2025-12-06 09:10:00', NULL);
+/*!40000 ALTER TABLE `ChatMessages` ENABLE KEYS */;
 UNLOCK TABLES;
 
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
