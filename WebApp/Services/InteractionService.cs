@@ -42,6 +42,13 @@ public class InteractionService
         try
         {
             await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+            var exists = await context.Interactions.AnyAsync(
+                i => i.ClientId == clientId && i.RealEstateId == realEstateId && i.DeletedAt == null,
+                cancellationToken);
+            if (exists)
+            {
+                throw new InvalidOperationException("Заявка по этому объекту уже создана.");
+            }
 
             var interactions = await context.Interactions
                 .AsNoTracking()
@@ -72,6 +79,25 @@ public class InteractionService
             _logger.LogError(ex, "Не удалось получить обращения для агента");
             return Array.Empty<InteractionSummary>();
         }
+    }
+
+    public async Task CancelByClientAsync(int interactionId, int clientId, CancellationToken cancellationToken = default)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+        var interaction = await context.Interactions
+            .FirstOrDefaultAsync(i => i.Id == interactionId && i.ClientId == clientId && i.DeletedAt == null, cancellationToken);
+        if (interaction is null)
+        {
+            throw new InvalidOperationException("Заявка не найдена.");
+        }
+
+        interaction.DeletedAt = _timeProvider.GetUtcNow().UtcDateTime;
+        interaction.UpdatedAt = _timeProvider.GetUtcNow().UtcDateTime;
+        interaction.Notes = string.IsNullOrWhiteSpace(interaction.Notes)
+            ? "Заявка отменена клиентом."
+            : $"{interaction.Notes} | Заявка отменена клиентом.";
+
+        await context.SaveChangesAsync(cancellationToken);
     }
 
     /// <summary>
@@ -214,6 +240,13 @@ public class InteractionService
         try
         {
             await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+            var exists = await context.Interactions.AnyAsync(
+                i => i.ClientId == clientId && i.RealEstateId == realEstateId && i.DeletedAt == null,
+                cancellationToken);
+            if (exists)
+            {
+                throw new InvalidOperationException("Заявка по этому объекту уже создана.");
+            }
 
             var statusId = await context.InteractionStatuses
                 .OrderBy(s => s.Id)
@@ -242,6 +275,24 @@ public class InteractionService
         }
     }
 
+    public async Task CancelByClientAsync(int interactionId, int clientId, CancellationToken cancellationToken = default)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+        var interaction = await context.Interactions
+            .FirstOrDefaultAsync(i => i.Id == interactionId && i.ClientId == clientId && i.DeletedAt == null, cancellationToken);
+        if (interaction is null)
+        {
+            throw new InvalidOperationException("Заявка не найдена.");
+        }
+
+        interaction.DeletedAt = _timeProvider.GetUtcNow().UtcDateTime;
+        interaction.UpdatedAt = _timeProvider.GetUtcNow().UtcDateTime;
+        interaction.Notes = string.IsNullOrWhiteSpace(interaction.Notes)
+            ? "Заявка отменена клиентом."
+            : $"{interaction.Notes} | Заявка отменена клиентом.";
+        await context.SaveChangesAsync(cancellationToken);
+    }
+
     /// <summary>
     /// Маппинг сущности EF Core в модель для отображения на экране.
     /// </summary>
@@ -252,6 +303,7 @@ public class InteractionService
             interaction.Client?.GetFullName() ?? "",
             interaction.Agent?.GetFullName() ?? "",
             interaction.AgentId,
+            interaction.RealEstateId,
             AddressFormatter.Format(interaction.RealEstate?.House),
             interaction.StatusId,
             interaction.Status?.Name ?? string.Empty,
