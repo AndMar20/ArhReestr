@@ -42,6 +42,11 @@
                             <NavLink href="/client" class="nav-link" Match="NavLinkMatch.Prefix">Кабинет клиента</NavLink>
                         </Authorized>
                     </AuthorizeView>
+                    <AuthorizeView Roles="admin,agent,client">
+                        <Authorized>
+                            <NavLink href="/chat" Match="NavLinkMatch.Prefix" @onclick="CloseMenu">Чат</NavLink>
+                        </Authorized>
+                    </AuthorizeView>
                 </nav>
                 <LoginDisplay />
             </div>
