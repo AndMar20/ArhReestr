@@ -141,7 +141,7 @@
                 </label>
                 <div class="form-stack">
                     <label>Фотографии
-                        <InputFile multiple OnChange="OnFilesSelected" accept="image/*" />
+                        <InputFile OnChange="OnFilesSelected" />
                     </label>
                     @if (UploadedPhotos.Count > 0)
                     {
@@ -297,29 +297,20 @@
         }
     }
 
-    private void OnFilesSelected(InputFileChangeEventArgs e)
+    private Task OnFilesSelected(InputFileChangeEventArgs e)
     {
         try
         {
-            IReadOnlyList<IBrowserFile> files;
-            if (e.FileCount <= 1)
-            {
-                files = e.File is null ? Array.Empty<IBrowserFile>() : new[] { e.File };
-            }
-            else
-            {
-                files = e.GetMultipleFiles(1000);
-            }
-
-            if (files.Count > 10)
-            {
-                UploadedPhotos = files.Take(10).ToList();
-                Notification = "Можно выбрать не более 10 фотографий за раз. Будут загружены только первые 10 файлов.";
-                NotificationStyle = "error";
-                return;
-            }
-
+            var files = e.GetMultipleFiles(1);
             UploadedPhotos = files.ToList();
+
+            if (UploadedPhotos.Count == 0)
+            {
+                Notification = null;
+                NotificationStyle = "info";
+                return Task.CompletedTask;
+            }
+
             Notification = null;
             NotificationStyle = "info";
         }
@@ -329,6 +320,8 @@
             Notification = DatabaseErrorMessages.Resolve(ex);
             NotificationStyle = "error";
         }
+
+        return Task.CompletedTask;
     }
 
     private void GoToDashboard()

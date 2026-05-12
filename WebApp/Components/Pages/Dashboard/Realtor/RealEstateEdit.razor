@@ -160,7 +160,7 @@ else if (canEdit)
                     </label>
                     <div class="form-stack">
                         <label>Новые фотографии
-                            <InputFile multiple OnChange="OnFilesSelected" accept="image/*" />
+                            <InputFile OnChange="OnFilesSelected" />
                         </label>
                         @if (newPhotos.Count > 0)
                         {
@@ -428,29 +428,20 @@ else
         }
     }
 
-    private void OnFilesSelected(InputFileChangeEventArgs e)
+    private Task OnFilesSelected(InputFileChangeEventArgs e)
     {
         try
         {
-            IReadOnlyList<IBrowserFile> files;
-            if (e.FileCount <= 1)
-            {
-                files = e.File is null ? Array.Empty<IBrowserFile>() : new[] { e.File };
-            }
-            else
-            {
-                files = e.GetMultipleFiles(1000);
-            }
-
-            if (files.Count > 10)
-            {
-                newPhotos = files.Take(10).ToList();
-                Notification = "Можно выбрать не более 10 фотографий за раз. Будут загружены только первые 10 файлов.";
-                NotificationStyle = "error";
-                return;
-            }
-
+            var files = e.GetMultipleFiles(1);
             newPhotos = files.ToList();
+
+            if (newPhotos.Count == 0)
+            {
+                Notification = null;
+                NotificationStyle = "info";
+                return Task.CompletedTask;
+            }
+
             Notification = null;
             NotificationStyle = "info";
         }
@@ -460,6 +451,8 @@ else
             Notification = DatabaseErrorMessages.Resolve(ex);
             NotificationStyle = "error";
         }
+
+        return Task.CompletedTask;
     }
 
     private void GoBack()
