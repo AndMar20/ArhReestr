@@ -297,6 +297,8 @@ CREATE TABLE `RealEstate` (
   PRIMARY KEY (`id`),
   KEY `idx_type` (`typeId`),
   KEY `idx_price_area` (`price`,`area`),
+  KEY `idx_real_estate_deleted_created` (`deletedAt`,`createdAt`),
+  KEY `idx_real_estate_house_deleted` (`houseId`,`deletedAt`),
   KEY `idx_agent` (`agentId`),
   KEY `idx_house` (`houseId`),
   CONSTRAINT `RealEstate_fk_agent` FOREIGN KEY (`agentId`) REFERENCES `Users` (`id`) ON DELETE CASCADE,
@@ -362,6 +364,7 @@ CREATE TABLE `RealEstatePhotos` (
   `deletedAt` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `idx_real_estate` (`realEstateId`),
+  KEY `idx_real_estate_primary_not_deleted` (`realEstateId`,`isPrimary`,`deletedAt`),
   CONSTRAINT `RealEstatePhotos_fk_real_estate` FOREIGN KEY (`realEstateId`) REFERENCES `RealEstate` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=91 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -491,6 +494,8 @@ CREATE TABLE `Interactions` (
   KEY `idx_real_estate` (`realEstateId`),
   KEY `idx_status` (`statusId`),
   KEY `idx_contacted` (`contactedAt`),
+  KEY `idx_interactions_updated` (`updatedAt`),
+  KEY `idx_interactions_agent_status_updated` (`agentId`,`statusId`,`updatedAt`),
   KEY `idx_interactions_status_time` (`statusId`,`contactedAt`),
   CONSTRAINT `Interactions_fk_agent` FOREIGN KEY (`agentId`) REFERENCES `Users` (`id`) ON DELETE CASCADE,
   CONSTRAINT `Interactions_fk_client` FOREIGN KEY (`clientId`) REFERENCES `Users` (`id`) ON DELETE CASCADE,
@@ -569,6 +574,7 @@ CREATE TABLE `Notifications` (
   `createdAt` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_notifications_user_time` (`userId`,`createdAt`),
+  KEY `idx_notifications_user_unread` (`userId`,`isRead`,`createdAt`),
   CONSTRAINT `Notifications_fk_user` FOREIGN KEY (`userId`) REFERENCES `Users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -604,6 +610,7 @@ CREATE TABLE `ViewingSlots` (
   PRIMARY KEY (`id`),
   KEY `idx_slots_real_estate` (`realEstateId`),
   KEY `idx_slots_agent_time` (`agentId`,`startsAt`),
+  KEY `idx_slots_real_estate_time` (`realEstateId`,`startsAt`),
   KEY `idx_slots_client` (`clientId`),
   CONSTRAINT `ViewingSlots_fk_real_estate` FOREIGN KEY (`realEstateId`) REFERENCES `RealEstate` (`id`) ON DELETE CASCADE,
   CONSTRAINT `ViewingSlots_fk_agent` FOREIGN KEY (`agentId`) REFERENCES `Users` (`id`) ON DELETE CASCADE,
@@ -643,6 +650,7 @@ CREATE TABLE `ChatMessages` (
   KEY `idx_chat_real_estate` (`realEstateId`),
   KEY `idx_chat_sender` (`senderId`),
   KEY `idx_chat_recipient` (`recipientId`),
+  KEY `idx_chat_dialog_time` (`senderId`,`recipientId`,`sentAt`),
   KEY `idx_chat_time` (`sentAt`),
   CONSTRAINT `ChatMessages_fk_real_estate` FOREIGN KEY (`realEstateId`) REFERENCES `RealEstate` (`id`) ON DELETE CASCADE,
   CONSTRAINT `ChatMessages_fk_sender` FOREIGN KEY (`senderId`) REFERENCES `Users` (`id`) ON DELETE CASCADE,
