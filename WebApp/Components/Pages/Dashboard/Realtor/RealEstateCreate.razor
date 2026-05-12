@@ -299,7 +299,27 @@
 
     private void OnFilesSelected(InputFileChangeEventArgs e)
     {
-        UploadedPhotos = e.GetMultipleFiles(10).ToList();
+        try
+        {
+            var files = e.GetMultipleFiles();
+            if (files.Count > 10)
+            {
+                UploadedPhotos = files.Take(10).ToList();
+                Notification = "Можно выбрать не более 10 фотографий за раз. Будут загружены только первые 10 файлов.";
+                NotificationStyle = "error";
+                return;
+            }
+
+            UploadedPhotos = files.ToList();
+            Notification = null;
+            NotificationStyle = "info";
+        }
+        catch (Exception ex)
+        {
+            UploadedPhotos = new List<IBrowserFile>();
+            Notification = DatabaseErrorMessages.Resolve(ex);
+            NotificationStyle = "error";
+        }
     }
 
     private void GoToDashboard()
