@@ -129,7 +129,7 @@ else
             NotificationStyle = "info";
             await LoadInteractionsAsync();
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             Notification = ex is InvalidOperationException ? ex.Message : "Не удалось отменить заявку.";
             NotificationStyle = "error";
