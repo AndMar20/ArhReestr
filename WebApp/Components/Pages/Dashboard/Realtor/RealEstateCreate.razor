@@ -301,7 +301,7 @@
     {
         try
         {
-            var files = e.GetMultipleFiles(1);
+            var files = e.GetMultipleFiles(Math.Max(e.FileCount, 1));
             UploadedPhotos = files.ToList();
 
             if (UploadedPhotos.Count == 0)

@@ -432,7 +432,7 @@ else
     {
         try
         {
-            var files = e.GetMultipleFiles(1);
+            var files = e.GetMultipleFiles(Math.Max(e.FileCount, 1));
             newPhotos = files.ToList();
 
             if (newPhotos.Count == 0)
