@@ -146,17 +146,18 @@ public class ArhReestrContext : DbContext
         });
 
 
-        modelBuilder.Entity<UserFavorite>(entity)
+        modelBuilder.Entity<UserFavorite>(entity =>
         {
             entity.ToTable("UserFavorites");
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.UserId).HasColumnName("userId");
             entity.Property(e => e.RealEstateId).HasColumnName("realEstateId");
             entity.Property(e => e.CreatedAt).HasColumnName("createdAt");
-            entity.HasIndex(e => new { e.UserId, e.RealEstateId }).IsUnique();
+            entity.HasIndex(e => new { e.UserId, e.RealEstateId }).IsUnique().HasDatabaseName("uk_user_favorite");
+            entity.HasIndex(e => e.RealEstateId).HasDatabaseName("idx_favorite_real_estate");
         });
 
-        modelBuilder.Entity<Notification>(entity)
+        modelBuilder.Entity<Notification>(entity =>
         {
             entity.ToTable("Notifications");
             entity.Property(e => e.Id).HasColumnName("id");
@@ -165,9 +166,11 @@ public class ArhReestrContext : DbContext
             entity.Property(e => e.Message).HasColumnName("message").HasMaxLength(1000);
             entity.Property(e => e.IsRead).HasColumnName("isRead");
             entity.Property(e => e.CreatedAt).HasColumnName("createdAt");
+            entity.HasIndex(e => new { e.UserId, e.CreatedAt }).HasDatabaseName("idx_notifications_user_time");
+            entity.HasIndex(e => new { e.UserId, e.IsRead, e.CreatedAt }).HasDatabaseName("idx_notifications_user_unread");
         });
 
-        modelBuilder.Entity<ViewingSlot>(entity)
+        modelBuilder.Entity<ViewingSlot>(entity =>
         {
             entity.ToTable("ViewingSlots");
             entity.Property(e => e.Id).HasColumnName("id");
@@ -178,9 +181,13 @@ public class ArhReestrContext : DbContext
             entity.Property(e => e.EndsAt).HasColumnName("endsAt");
             entity.Property(e => e.Status).HasColumnName("status").HasMaxLength(30);
             entity.Property(e => e.Notes).HasColumnName("notes");
+            entity.HasIndex(e => e.RealEstateId).HasDatabaseName("idx_slots_real_estate");
+            entity.HasIndex(e => new { e.AgentId, e.StartsAt }).HasDatabaseName("idx_slots_agent_time");
+            entity.HasIndex(e => new { e.RealEstateId, e.StartsAt }).HasDatabaseName("idx_slots_real_estate_time");
+            entity.HasIndex(e => e.ClientId).HasDatabaseName("idx_slots_client");
         });
 
-        modelBuilder.Entity<ChatMessage>(entity)
+        modelBuilder.Entity<ChatMessage>(entity =>
         {
             entity.ToTable("ChatMessages");
             entity.Property(e => e.Id).HasColumnName("id");
@@ -190,6 +197,11 @@ public class ArhReestrContext : DbContext
             entity.Property(e => e.Message).HasColumnName("message").HasMaxLength(4000);
             entity.Property(e => e.SentAt).HasColumnName("sentAt");
             entity.Property(e => e.ReadAt).HasColumnName("readAt");
+            entity.HasIndex(e => e.RealEstateId).HasDatabaseName("idx_chat_real_estate");
+            entity.HasIndex(e => e.SenderId).HasDatabaseName("idx_chat_sender");
+            entity.HasIndex(e => e.RecipientId).HasDatabaseName("idx_chat_recipient");
+            entity.HasIndex(e => new { e.SenderId, e.RecipientId, e.SentAt }).HasDatabaseName("idx_chat_dialog_time");
+            entity.HasIndex(e => e.SentAt).HasDatabaseName("idx_chat_time");
         });
 
         modelBuilder.Entity<RealEstateType>(entity =>
@@ -214,6 +226,8 @@ public class ArhReestrContext : DbContext
             entity.Property(e => e.HasBalcony).HasColumnName("hasBalcony");
             entity.Property(e => e.CreatedAt).HasColumnName("createdAt");
             entity.Property(e => e.DeletedAt).HasColumnName("deletedAt");
+            entity.HasIndex(e => new { e.DeletedAt, e.CreatedAt }).HasDatabaseName("idx_real_estate_deleted_created");
+            entity.HasIndex(e => new { e.HouseId, e.DeletedAt }).HasDatabaseName("idx_real_estate_house_deleted");
 
             entity.HasOne(d => d.Agent)
                 .WithMany(p => p.RealEstates)
@@ -240,6 +254,7 @@ public class ArhReestrContext : DbContext
             entity.Property(e => e.FileName).HasColumnName("fileName").HasMaxLength(100);
             entity.Property(e => e.IsPrimary).HasColumnName("isPrimary");
             entity.Property(e => e.DeletedAt).HasColumnName("deletedAt");
+            entity.HasIndex(e => new { e.RealEstateId, e.IsPrimary, e.DeletedAt }).HasDatabaseName("idx_real_estate_primary_not_deleted");
 
             entity.HasOne(d => d.RealEstate)
                 .WithMany(p => p.Photos)
@@ -259,6 +274,8 @@ public class ArhReestrContext : DbContext
             entity.Property(e => e.UpdatedAt).HasColumnName("updatedAt");
             entity.Property(e => e.Notes).HasColumnName("notes");
             entity.Property(e => e.DeletedAt).HasColumnName("deletedAt");
+            entity.HasIndex(e => e.UpdatedAt).HasDatabaseName("idx_interactions_updated");
+            entity.HasIndex(e => new { e.AgentId, e.StatusId, e.UpdatedAt }).HasDatabaseName("idx_interactions_agent_status_updated");
 
             entity.HasOne(d => d.Client)
                 .WithMany(p => p.ClientInteractions)
