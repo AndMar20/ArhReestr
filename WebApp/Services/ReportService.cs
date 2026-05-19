@@ -319,14 +319,16 @@ public class ReportService
             .Where(d => d.Interaction != null && d.Agent != null)
             .Select(d => new
             {
-                Agent = FullNameFormatter.Combine(d.Agent!.LastName, d.Agent!.FirstName, d.Agent!.MiddleName),
+                d.Agent!.LastName,
+                d.Agent!.FirstName,
+                d.Agent!.MiddleName,
                 d.Interaction!.ContactedAt,
                 d.ClosedAt
             })
             .ToListAsync(cancellationToken);
 
         return rows
-            .GroupBy(r => r.Agent)
+            .GroupBy(r => FullNameFormatter.Combine(r.LastName, r.FirstName, r.MiddleName))
             .Select(g => new AdminReportRow(g.Key, (int)Math.Round(g.Average(x => (x.ClosedAt - x.ContactedAt).TotalDays))))
             .OrderBy(r => r.Value)
             .ToList();

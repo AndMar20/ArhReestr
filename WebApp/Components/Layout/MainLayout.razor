@@ -1,8 +1,12 @@
 @inherits LayoutComponentBase
 @implements IDisposable
 @using Microsoft.AspNetCore.Components.Routing
+@using global::System.Security.Claims
 @using WebApp.Infrastructure
 @inject DatabaseHealthState DatabaseHealthState
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NotificationService NotificationService
+@inject ChatService ChatService
 
 <PageTitle>АрхРеестр</PageTitle>
 
@@ -46,12 +50,24 @@
                     </AuthorizeView>
                     <AuthorizeView Roles="agent,client">
                         <Authorized>
-                            <NavLink href="/chat" Match="NavLinkMatch.Prefix" @onclick="CloseMenu">Чат</NavLink>
+                            <NavLink href="/chat" Match="NavLinkMatch.Prefix" @onclick="CloseMenu">
+                                Чат
+                                @if (UnreadChatCount > 0)
+                                {
+                                    <span class="nav-counter">@UnreadChatCount</span>
+                                }
+                            </NavLink>
                         </Authorized>
                     </AuthorizeView>
                     <AuthorizeView>
                         <Authorized>
-                            <NavLink href="/notifications" Match="NavLinkMatch.Prefix" @onclick="CloseMenu">Уведомления</NavLink>
+                            <NavLink href="/notifications" Match="NavLinkMatch.Prefix" @onclick="CloseMenu">
+                                Уведомления
+                                @if (UnreadNotificationCount > 0)
+                                {
+                                    <span class="nav-counter">@UnreadNotificationCount</span>
+                                }
+                            </NavLink>
                         </Authorized>
                     </AuthorizeView>
                 </nav>
@@ -82,6 +98,8 @@
     private NavigationManager NavigationManager { get; set; } = default!;
 
     private bool isMenuOpen;
+    private int UnreadChatCount { get; set; }
+    private int UnreadNotificationCount { get; set; }
 
     private string NavMenuClass => isMenuOpen ? "nav-menu open" : "nav-menu";
 
@@ -96,9 +114,10 @@
         }
     }
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         NavigationManager.LocationChanged += OnLocationChanged;
+        await RefreshCountersAsync();
     }
 
     private void ToggleMenu()
@@ -114,7 +133,37 @@
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
         isMenuOpen = false;
-        _ = InvokeAsync(StateHasChanged);
+        _ = InvokeAsync(async () =>
+        {
+            await RefreshCountersAsync();
+            StateHasChanged();
+        });
+    }
+
+    private async Task RefreshCountersAsync()
+    {
+        try
+        {
+            var state = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var user = state.User;
+            if (user.Identity?.IsAuthenticated != true ||
+                !int.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out var currentUserId))
+            {
+                UnreadChatCount = 0;
+                UnreadNotificationCount = 0;
+                return;
+            }
+
+            UnreadNotificationCount = await NotificationService.GetUnreadCountAsync(currentUserId);
+            UnreadChatCount = user.IsInRole("agent") || user.IsInRole("client")
+                ? await ChatService.GetUnreadCountAsync(currentUserId)
+                : 0;
+        }
+        catch
+        {
+            UnreadChatCount = 0;
+            UnreadNotificationCount = 0;
+        }
     }
 
     public void Dispose()

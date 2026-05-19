@@ -96,6 +96,9 @@
                         <span>@selectedRealEstateAddress</span>
                     }
                     <NavLink class="ghost" href="@SelectedObjectUrl">К объекту</NavLink>
+                    <button type="button" class="danger ghost" @onclick="DeleteSelectedDialogAsync" disabled="@isDeletingDialog">
+                        @(isDeletingDialog ? "Удаляем..." : "Удалить диалог")
+                    </button>
                 </div>
             </div>
             @if (selectedInteraction is not null && !isClient)
@@ -171,6 +174,7 @@
     private InteractionSummary? selectedInteraction;
     private int selectedStatusId;
     private bool isStatusSaving;
+    private bool isDeletingDialog;
     private bool CanEditSelectedInteraction => selectedInteraction is not null && (isAdmin || selectedInteraction.AgentId == userId);
     private string CurrentDialogUrl => selectedRealEstateId > 0 && selectedPeerId > 0
         ? $"/chat?realEstateId={selectedRealEstateId}&peerId={selectedPeerId}"
@@ -349,6 +353,36 @@
         finally
         {
             isStatusSaving = false;
+        }
+    }
+
+    private async Task DeleteSelectedDialogAsync()
+    {
+        if (selectedRealEstateId <= 0 || selectedPeerId <= 0 || isDeletingDialog)
+        {
+            return;
+        }
+
+        try
+        {
+            isDeletingDialog = true;
+            await ChatService.DeleteDialogAsync(userId, selectedRealEstateId, selectedPeerId);
+            selectedRealEstateId = 0;
+            selectedPeerId = 0;
+            selectedRealEstateAddress = string.Empty;
+            selectedInteraction = null;
+            messages.Clear();
+            chatNotice = "Диалог удалён.";
+            NavigationManager.NavigateTo("/chat");
+            await ReloadDialogsAsync();
+        }
+        catch (Exception ex)
+        {
+            chatNotice = $"Не удалось удалить диалог: {ex.Message}";
+        }
+        finally
+        {
+            isDeletingDialog = false;
         }
     }
 

@@ -118,4 +118,30 @@ public class ChatService
 
         await context.SaveChangesAsync(token);
     }
+
+    public async Task<int> GetUnreadCountAsync(int userId, CancellationToken token = default)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync(token);
+        return await context.ChatMessages
+            .AsNoTracking()
+            .CountAsync(m => m.RecipientId == userId && m.ReadAt == null, token);
+    }
+
+    public async Task DeleteDialogAsync(int userId, int realEstateId, int peerId, CancellationToken token = default)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync(token);
+        var messages = await context.ChatMessages
+            .Where(m => m.RealEstateId == realEstateId &&
+                       ((m.SenderId == userId && m.RecipientId == peerId) ||
+                        (m.SenderId == peerId && m.RecipientId == userId)))
+            .ToListAsync(token);
+
+        if (messages.Count == 0)
+        {
+            return;
+        }
+
+        context.ChatMessages.RemoveRange(messages);
+        await context.SaveChangesAsync(token);
+    }
 }

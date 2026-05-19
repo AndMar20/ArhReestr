@@ -42,13 +42,15 @@ window.catalogMap = (() => {
 
         clearMarkers();
         const bounds = [];
+        const locationCounts = new Map();
 
         (items || []).forEach(item => {
             if (item.latitude == null || item.longitude == null) {
                 return;
             }
 
-            const marker = L.marker([item.latitude, item.longitude]).addTo(currentMap);
+            const point = spreadPoint(item, locationCounts);
+            const marker = L.marker(point).addTo(currentMap);
             marker.bindPopup(`
                 <strong>${escapeHtml(item.price)}</strong><br>
                 <a href="${escapeAttribute(item.url || `/real-estate/${item.id}`)}">${escapeHtml(item.address)}</a><br>
@@ -56,7 +58,7 @@ window.catalogMap = (() => {
             `);
             marker.on("click", () => marker.openPopup());
             markers.push(marker);
-            bounds.push([item.latitude, item.longitude]);
+            bounds.push(point);
         });
 
         if (bounds.length === 1) {
@@ -66,6 +68,25 @@ window.catalogMap = (() => {
         } else {
             currentMap.setView([55.751244, 37.618423], 11);
         }
+    }
+
+    function spreadPoint(item, locationCounts) {
+        const latitude = Number(item.latitude);
+        const longitude = Number(item.longitude);
+        const key = `${latitude.toFixed(7)}:${longitude.toFixed(7)}`;
+        const index = locationCounts.get(key) || 0;
+        locationCounts.set(key, index + 1);
+
+        if (index === 0) {
+            return [latitude, longitude];
+        }
+
+        const radius = 0.00008 + Math.floor(index / 8) * 0.00005;
+        const angle = (index - 1) * (Math.PI * 2 / 8);
+        return [
+            latitude + Math.sin(angle) * radius,
+            longitude + Math.cos(angle) * radius
+        ];
     }
 
     function escapeHtml(value) {

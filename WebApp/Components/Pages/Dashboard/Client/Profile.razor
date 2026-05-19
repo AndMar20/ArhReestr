@@ -1,5 +1,6 @@
 @page "/profile"
 @attribute [Authorize]
+@using global::System.ComponentModel.DataAnnotations
 @inject AuthenticationStateProvider AuthStateProvider
 @inject UserManager<ApplicationUser> UserManager
 
@@ -37,13 +38,37 @@
 
         <button type="submit" class="primary" disabled="@IsSaving">@(IsSaving ? "Сохранение..." : "Сохранить")</button>
     </EditForm>
+
+    <div class="panel-section">
+        <h2>Пароль</h2>
+        <EditForm Model="PasswordModel" OnValidSubmit="ChangePasswordAsync" class="form-stack" FormName="changePasswordForm">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <label>Текущий пароль
+                <InputText @bind-Value="PasswordModel.CurrentPassword" type="password" />
+            </label>
+            <label>Новый пароль
+                <InputText @bind-Value="PasswordModel.NewPassword" type="password" />
+            </label>
+            <label>Повторите новый пароль
+                <InputText @bind-Value="PasswordModel.ConfirmPassword" type="password" />
+            </label>
+
+            <button type="submit" class="primary" disabled="@IsChangingPassword">
+                @(IsChangingPassword ? "Обновление..." : "Изменить пароль")
+            </button>
+        </EditForm>
+    </div>
 </section>
 
 @code {
     private readonly ApplicationUser Model = new();
+    private readonly ChangePasswordModel PasswordModel = new();
     private string? Notification;
     private string NotificationStyle = "info";
     private bool IsSaving;
+    private bool IsChangingPassword;
 
     protected override async Task OnInitializedAsync()
     {
@@ -98,5 +123,52 @@
         {
             IsSaving = false;
         }
+    }
+
+    private async Task ChangePasswordAsync()
+    {
+        IsChangingPassword = true;
+        try
+        {
+            var state = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = await UserManager.GetUserAsync(state.User);
+            if (user is null)
+            {
+                Notification = "Пользователь не найден.";
+                NotificationStyle = "error";
+                return;
+            }
+
+            var result = await UserManager.ChangePasswordAsync(user, PasswordModel.CurrentPassword, PasswordModel.NewPassword);
+            if (!result.Succeeded)
+            {
+                Notification = string.Join("; ", result.Errors.Select(e => e.Description));
+                NotificationStyle = "error";
+                return;
+            }
+
+            PasswordModel.CurrentPassword = string.Empty;
+            PasswordModel.NewPassword = string.Empty;
+            PasswordModel.ConfirmPassword = string.Empty;
+            Notification = "Пароль успешно изменён.";
+            NotificationStyle = "success";
+        }
+        finally
+        {
+            IsChangingPassword = false;
+        }
+    }
+
+    private sealed class ChangePasswordModel
+    {
+        [Required(ErrorMessage = "Введите текущий пароль")]
+        public string CurrentPassword { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Введите новый пароль")]
+        [MinLength(6, ErrorMessage = "Пароль должен быть не короче 6 символов")]
+        public string NewPassword { get; set; } = string.Empty;
+
+        [Compare(nameof(NewPassword), ErrorMessage = "Пароли не совпадают")]
+        public string ConfirmPassword { get; set; } = string.Empty;
     }
 }

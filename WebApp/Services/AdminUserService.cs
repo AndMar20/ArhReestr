@@ -16,15 +16,18 @@ public class AdminUserService
     private readonly ArhReestrContext _context;
     private readonly ILogger<AdminUserService> _logger;
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly AuditLogService _auditLogService;
 
     public AdminUserService(
         ArhReestrContext context,
         ILogger<AdminUserService> logger,
-        UserManager<ApplicationUser> userManager)
+        UserManager<ApplicationUser> userManager,
+        AuditLogService auditLogService)
     {
         _context = context;
         _logger = logger;
         _userManager = userManager;
+        _auditLogService = auditLogService;
     }
 
     /// <summary>
@@ -221,6 +224,36 @@ public class AdminUserService
             _logger.LogWarning("Не удалось удалить пользователя {UserId}: {Message}", userId, message);
             throw new InvalidOperationException(message);
         }
+    }
+
+    public async Task ResetPasswordAsync(int userId, string newPassword, int actingUserId, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(newPassword))
+        {
+            throw new InvalidOperationException("Введите новый пароль.");
+        }
+
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+        if (user is null)
+        {
+            throw new InvalidOperationException("Пользователь не найден или удалён.");
+        }
+
+        var removeResult = await _userManager.RemovePasswordAsync(user);
+        if (!removeResult.Succeeded && removeResult.Errors.Any(error => error.Code != "UserAlreadyHasNoPassword"))
+        {
+            var message = string.Join("; ", removeResult.Errors.Select(error => error.Description));
+            throw new InvalidOperationException(message);
+        }
+
+        var addResult = await _userManager.AddPasswordAsync(user, newPassword);
+        if (!addResult.Succeeded)
+        {
+            var message = string.Join("; ", addResult.Errors.Select(error => error.Description));
+            throw new InvalidOperationException(message);
+        }
+
+        await _auditLogService.WriteAsync("User", "password-reset", userId, actingUserId, null, "Пароль изменён администратором", cancellationToken);
     }
 
     private static UserListItem MapToListItem(DataLayer.Models.User entity)

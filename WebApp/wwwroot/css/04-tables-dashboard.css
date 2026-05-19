@@ -1,4 +1,4 @@
-.grid-two {
+﻿.grid-two {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 0.85rem;
@@ -325,6 +325,22 @@
         text-align: center;
     }
 
+
+.user-management-actions {
+    align-items: stretch;
+    min-width: 220px;
+}
+
+.compact-password-input {
+    min-height: 40px;
+    min-width: 150px;
+    max-width: 180px;
+    padding: 0.55rem 0.85rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: #fff;
+    font: inherit;
+}
 .table-actions .icon-button,
 .client-actions .icon-button {
     min-width: 42px;

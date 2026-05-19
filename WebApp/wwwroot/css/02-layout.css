@@ -145,6 +145,21 @@ nav a.brand.active {
     font-weight: 700;
 }
 
+.nav-counter {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.45rem;
+    height: 1.45rem;
+    margin-left: 0.35rem;
+    padding: 0 0.4rem;
+    border-radius: 999px;
+    background: #ef4444;
+    color: #fff;
+    font-size: 0.78rem;
+    line-height: 1;
+}
+
 .logout-form {
     margin: 0;
 }

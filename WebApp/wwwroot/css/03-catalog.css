@@ -325,6 +325,10 @@ input, select, textarea {
         white-space: nowrap;
         text-align: center;
     }
+
+    .card .card-actions.no-request-action {
+        grid-template-columns: 42px minmax(0, 1fr);
+    }
 }
 
 .tag-pill {

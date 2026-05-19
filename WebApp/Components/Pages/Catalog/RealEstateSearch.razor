@@ -193,7 +193,7 @@ else
                                 </div>
                             </div>
 
-                            <div class="card-actions">
+                            <div class="card-actions @(CanRequestInteraction ? string.Empty : "no-request-action")">
                                 @if (CanRequestInteraction)
                                 {
                                     <button @onclick="() => ContactAsync(item)"

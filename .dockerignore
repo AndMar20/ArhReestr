@@ -6,3 +6,4 @@ artifacts/
 webapp-run*.log
 *.user
 *.suo
+offline-packages/

@@ -1,4 +1,4 @@
-@page "/admin/users"
+﻿@page "/admin/users"
 @attribute [Authorize(Policy = "RequireAdmin")]
 @inject AdminUserService AdminUserService
 @inject LookupService LookupService
@@ -158,7 +158,11 @@ else
                                     </div>
                                 </td>
                                 <td data-label="Создан">@DateTimeDisplay.Format(user.CreatedAt)</td>
-                                <td class="table-actions" data-label="Действия">
+                                <td class="table-actions user-management-actions" data-label="Действия">
+                                    <input class="compact-password-input" type="password" placeholder="Новый пароль" @bind="user.NewPassword" disabled="@user.IsSaving" />
+                                    <button class="ghost" disabled="@user.IsSaving" @onclick="() => ResetPasswordAsync(user)">
+                                        @(user.IsSaving ? "Сохраняем..." : "Сменить пароль")
+                                    </button>
                                     <button class="ghost" disabled="@user.IsSaving" @onclick="() => SaveRoleAsync(user)">
                                         @(user.IsSaving ? "Сохраняем..." : "Обновить роль")
                                     </button>
@@ -298,6 +302,36 @@ else
         }
     }
 
+    private async Task ResetPasswordAsync(EditableUser user)
+    {
+        Notification = null;
+        NotificationStyle = "info";
+        user.IsSaving = true;
+
+        try
+        {
+            await AdminUserService.ResetPasswordAsync(user.Id, user.NewPassword, currentUserId);
+            user.NewPassword = string.Empty;
+            Notification = $"Пароль пользователя {user.FullName} изменён.";
+            NotificationStyle = "success";
+        }
+        catch (InvalidOperationException ex)
+        {
+            Notification = ex.Message;
+            NotificationStyle = "error";
+        }
+        catch (Exception ex)
+        {
+            Notification = DatabaseErrorMessages.Resolve(ex);
+            NotificationStyle = "error";
+            Logger.LogError(ex, "Ошибка при смене пароля пользователя {UserId}", user.Id);
+        }
+        finally
+        {
+            user.IsSaving = false;
+        }
+    }
+
     private async Task CreateUserAsync()
     {
         Notification = null;
@@ -406,6 +440,7 @@ else
         public string RoleDisplayName { get; set; }
         public string SelectedRole { get; set; }
         public DateTime CreatedAt { get; }
+        public string NewPassword { get; set; } = string.Empty;
         public bool IsSaving { get; set; }
     }
 }
