@@ -15,14 +15,17 @@
 }
 else
 {
-    <section class="hero-card">
+    <section class="hero-card admin-hero">
         <div class="section-header">
             <div>
                 <h1 class="section-title">Пользователи</h1>
-                <p class="section-sub">Назначайте роли и создавайте риелторов прямо из панели администратора.</p>
+                <p class="section-sub">Поиск, роли и создание аккаунтов из панели администратора.</p>
             </div>
-            <NavLink class="ghost" href="/admin">Вернуться в панель</NavLink>
+            <button type="button" class="primary" @onclick="ToggleCreateForm">
+                @(ShowCreateForm ? "Закрыть форму" : "Добавить пользователя")
+            </button>
         </div>
+        <AdminNav />
     </section>
 
     @if (!string.IsNullOrEmpty(Notification))
@@ -30,64 +33,90 @@ else
         <div class="alert @NotificationStyle">@Notification</div>
     }
 
+    @if (ShowCreateForm)
+    {
+        <div class="panel admin-create-panel">
+            <div class="section-header">
+                <div>
+                    <h2>Новый пользователь</h2>
+                    <p class="small-text">Форма скрыта по умолчанию, чтобы список оставался рабочим.</p>
+                </div>
+            </div>
+            <EditForm EditContext="newUserContext" OnValidSubmit="CreateUserAsync" class="form-stack">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+                <div class="grid-three">
+                    <label>Фамилия
+                        <InputText @bind-Value="NewUser.LastName" />
+                        <ValidationMessage For="@(() => NewUser.LastName)" />
+                    </label>
+                    <label>Имя
+                        <InputText @bind-Value="NewUser.FirstName" />
+                        <ValidationMessage For="@(() => NewUser.FirstName)" />
+                    </label>
+                    <label>Отчество
+                        <InputText @bind-Value="NewUser.MiddleName" />
+                        <ValidationMessage For="@(() => NewUser.MiddleName)" />
+                    </label>
+                </div>
+                <div class="grid-three">
+                    <label>Email
+                        <InputText @bind-Value="NewUser.Email" type="email" />
+                        <ValidationMessage For="@(() => NewUser.Email)" />
+                    </label>
+                    <label>Телефон
+                        <InputText @bind-Value="NewUser.Phone" type="tel" />
+                        <ValidationMessage For="@(() => NewUser.Phone)" />
+                    </label>
+                    <label>Пароль
+                        <InputText @bind-Value="NewUser.Password" type="password" />
+                        <ValidationMessage For="@(() => NewUser.Password)" />
+                    </label>
+                </div>
+                <div class="grid-two">
+                    <label>Роль
+                        <InputSelect @bind-Value="NewUser.RoleName">
+                            @foreach (var role in Roles)
+                            {
+                                <option value="@role.Name">@role.DisplayName</option>
+                            }
+                        </InputSelect>
+                        <ValidationMessage For="@(() => NewUser.RoleName)" />
+                    </label>
+                </div>
+                <div class="buttons">
+                    <button type="submit" class="primary" disabled="@isCreatingUser">@(isCreatingUser ? "Создаем..." : "Добавить пользователя")</button>
+                    <button type="button" class="ghost" @onclick="ToggleCreateForm">Отмена</button>
+                </div>
+            </EditForm>
+        </div>
+    }
+
     <div class="panel">
         <div class="section-header">
             <div>
                 <h2>Все пользователи</h2>
-                <p class="small-text">Создавайте аккаунты и управляйте ролями</p>
+                <p class="small-text">@FilteredUsers.Count из @Users.Count записей</p>
             </div>
-            <span class="small-text">@Users.Count записей</span>
         </div>
 
-        <EditForm EditContext="newUserContext" OnValidSubmit="CreateUserAsync" class="form-stack">
-            <DataAnnotationsValidator />
-            <ValidationSummary />
-            <div class="grid-three">
-                <label>Фамилия
-                    <InputText @bind-Value="NewUser.LastName" />
-                    <ValidationMessage For="@(() => NewUser.LastName)" />
-                </label>
-                <label>Имя
-                    <InputText @bind-Value="NewUser.FirstName" />
-                    <ValidationMessage For="@(() => NewUser.FirstName)" />
-                </label>
-                <label>Отчество
-                    <InputText @bind-Value="NewUser.MiddleName" />
-                    <ValidationMessage For="@(() => NewUser.MiddleName)" />
-                </label>
-            </div>
-            <div class="grid-three">
-                <label>Email
-                    <InputText @bind-Value="NewUser.Email" type="email" />
-                    <ValidationMessage For="@(() => NewUser.Email)" />
-                </label>
-                <label>Телефон
-                    <InputText @bind-Value="NewUser.Phone" type="tel" />
-                    <ValidationMessage For="@(() => NewUser.Phone)" />
-                </label>
-                <label>Пароль
-                    <InputText @bind-Value="NewUser.Password" type="password" />
-                    <ValidationMessage For="@(() => NewUser.Password)" />
-                </label>
-            </div>
-            <div class="grid-two">
-                <label>Роль
-                    <InputSelect @bind-Value="NewUser.RoleName">
-                        <option value="">Выберите роль</option>
-                        @foreach (var role in Roles)
-                        {
-                            <option value="@role.Name">@role.DisplayName</option>
-                        }
-                    </InputSelect>
-                    <ValidationMessage For="@(() => NewUser.RoleName)" />
-                </label>
-            </div>
-            <div class="buttons">
-                <button type="submit" class="primary" disabled="@isCreatingUser">@(isCreatingUser ? "Создаем..." : "Добавить пользователя")</button>
-            </div>
-        </EditForm>
+        <div class="admin-filter-bar">
+            <label>Поиск
+                <input @bind="UserSearch" @bind:event="oninput" placeholder="ФИО, email, телефон" />
+            </label>
+            <label>Роль
+                <select @bind="RoleFilter">
+                    <option value="">Все роли</option>
+                    @foreach (var role in Roles)
+                    {
+                        <option value="@role.Name">@role.DisplayName</option>
+                    }
+                </select>
+            </label>
+            <button type="button" class="ghost filter-reset-button" @onclick="ResetFilters">Сбросить</button>
+        </div>
 
-        @if (Users.Count == 0)
+        @if (FilteredUsers.Count == 0)
         {
             <p class="muted">Пользователи не найдены.</p>
         }
@@ -98,15 +127,14 @@ else
                     <thead>
                         <tr>
                             <th>ФИО</th>
-                            <th>Email</th>
-                            <th>Телефон</th>
+                            <th>Контакты</th>
                             <th>Роль</th>
                             <th>Создан</th>
                             <th></th>
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var user in Users)
+                        @foreach (var user in FilteredUsers)
                         {
                             var isDeleting = deletingUsers.Contains(user.Id);
                             <tr>
@@ -114,10 +142,13 @@ else
                                     <div class="cell-primary">@user.FullName</div>
                                     <div class="cell-note">ID: @user.Id</div>
                                 </td>
-                                <td data-label="Email">@user.Email</td>
-                                <td data-label="Телефон">@user.Phone</td>
+                                <td data-label="Контакты">
+                                    <div>@user.Email</div>
+                                    <div class="cell-note">@user.Phone</div>
+                                </td>
                                 <td data-label="Роль">
-                                    <div class="select">
+                                    <span class="badge role-badge">@user.RoleDisplayName</span>
+                                    <div class="select compact-select">
                                         <select @bind="user.SelectedRole" aria-label="Выбрать роль для пользователя @user.FullName">
                                             @foreach (var role in Roles)
                                             {
@@ -126,12 +157,12 @@ else
                                         </select>
                                     </div>
                                 </td>
-                                <td data-label="Создан">@user.CreatedAt.ToString("g")</td>
-                                <td class="table-actions">
+                                <td data-label="Создан">@DateTimeDisplay.Format(user.CreatedAt)</td>
+                                <td class="table-actions" data-label="Действия">
                                     <button class="ghost" disabled="@user.IsSaving" @onclick="() => SaveRoleAsync(user)">
                                         @(user.IsSaving ? "Сохраняем..." : "Обновить роль")
                                     </button>
-                                    <button class="danger ghost" aria-disabled="@isDeleting" @onclick="() => DeleteUserAsync(user)">
+                                    <button class="danger ghost" disabled="@isDeleting" @onclick="() => DeleteUserAsync(user)">
                                         @(isDeleting ? "Удаляем..." : "Удалить")
                                     </button>
                                 </td>
@@ -153,8 +184,16 @@ else
     private readonly AdminUserCreateModel NewUser = new();
     private EditContext? newUserContext;
     private bool isCreatingUser;
+    private bool ShowCreateForm;
+    private string UserSearch { get; set; } = string.Empty;
+    private string RoleFilter { get; set; } = string.Empty;
     private readonly HashSet<int> deletingUsers = new();
     private int currentUserId;
+
+    private List<EditableUser> FilteredUsers => Users
+        .Where(MatchesSearch)
+        .Where(u => string.IsNullOrWhiteSpace(RoleFilter) || u.RoleName == RoleFilter)
+        .ToList();
 
     protected override async Task OnInitializedAsync()
     {
@@ -171,6 +210,7 @@ else
             {
                 NewUser.RoleName = Roles.FirstOrDefault()?.Name ?? string.Empty;
             }
+
             Users = (await AdminUserService.GetUsersAsync()).Select(u => new EditableUser(u)).ToList();
 
             var state = await AuthenticationStateProvider.GetAuthenticationStateAsync();
@@ -197,6 +237,31 @@ else
         }
     }
 
+    private bool MatchesSearch(EditableUser user)
+    {
+        if (string.IsNullOrWhiteSpace(UserSearch))
+        {
+            return true;
+        }
+
+        var term = UserSearch.Trim();
+        return user.FullName.Contains(term, StringComparison.OrdinalIgnoreCase)
+            || user.Email.Contains(term, StringComparison.OrdinalIgnoreCase)
+            || user.Phone.Contains(term, StringComparison.OrdinalIgnoreCase)
+            || user.RoleDisplayName.Contains(term, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void ResetFilters()
+    {
+        UserSearch = string.Empty;
+        RoleFilter = string.Empty;
+    }
+
+    private void ToggleCreateForm()
+    {
+        ShowCreateForm = !ShowCreateForm;
+    }
+
     private async Task ReloadUsersAsync()
     {
         var loaded = await AdminUserService.GetUsersAsync();
@@ -212,9 +277,7 @@ else
         try
         {
             await AdminUserService.UpdateUserRoleAsync(user.Id, user.SelectedRole, currentUserId);
-
             await ReloadUsersAsync();
-
             Notification = $"Роль пользователя {user.FullName} обновлена.";
             NotificationStyle = "success";
         }
@@ -253,9 +316,8 @@ else
             Users.Add(new EditableUser(created));
             Notification = "Пользователь успешно добавлен.";
             NotificationStyle = "success";
+            ShowCreateForm = false;
 
-            // Пересоздаём контекст, чтобы очистить валидационные сообщения
-            newUserContext = new EditContext(NewUser);
             NewUser.LastName = string.Empty;
             NewUser.FirstName = string.Empty;
             NewUser.MiddleName = null;
@@ -263,6 +325,7 @@ else
             NewUser.Phone = null;
             NewUser.Password = string.Empty;
             NewUser.RoleName = Roles.FirstOrDefault()?.Name ?? string.Empty;
+            newUserContext = new EditContext(NewUser);
         }
         catch (InvalidOperationException ex)
         {
@@ -292,9 +355,9 @@ else
 
         if (!deletingUsers.Add(user.Id))
         {
-            // Предохраняемся от повторных кликов, даже если кнопка не выглядит заблокированной для пользователя
             return;
         }
+
         try
         {
             await AdminUserService.DeleteUserAsync(user.Id, currentUserId);

@@ -9,11 +9,11 @@ namespace WebApp.Identity;
 /// </summary>
 public class ArhRoleStore : IRoleStore<ApplicationRole>
 {
-    private readonly ArhReestrContext _context;
+    private readonly IDbContextFactory<ArhReestrContext> _contextFactory;
 
-    public ArhRoleStore(ArhReestrContext context)
+    public ArhRoleStore(IDbContextFactory<ArhReestrContext> contextFactory)
     {
-        _context = context;
+        _contextFactory = contextFactory;
     }
 
     public void Dispose()
@@ -25,13 +25,14 @@ public class ArhRoleStore : IRoleStore<ApplicationRole>
     /// </summary>
     public async Task<IdentityResult> CreateAsync(ApplicationRole role, CancellationToken cancellationToken)
     {
-        _context.Roles.Add(new DataLayer.Models.Role
+        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+        context.Roles.Add(new DataLayer.Models.Role
         {
             Name = role.Name ?? string.Empty,
             DisplayName = role.DisplayName
         });
 
-        await _context.SaveChangesAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken);
         return IdentityResult.Success;
     }
 
@@ -40,7 +41,8 @@ public class ArhRoleStore : IRoleStore<ApplicationRole>
     /// </summary>
     public async Task<IdentityResult> UpdateAsync(ApplicationRole role, CancellationToken cancellationToken)
     {
-        var entity = await _context.Roles.FirstOrDefaultAsync(r => r.Id == role.Id, cancellationToken);
+        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+        var entity = await context.Roles.FirstOrDefaultAsync(r => r.Id == role.Id, cancellationToken);
         if (entity is null)
         {
             return IdentityResult.Failed(new IdentityError { Description = "Роль не найдена" });
@@ -48,7 +50,7 @@ public class ArhRoleStore : IRoleStore<ApplicationRole>
 
         entity.Name = role.Name ?? entity.Name;
         entity.DisplayName = role.DisplayName;
-        await _context.SaveChangesAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken);
         return IdentityResult.Success;
     }
 
@@ -57,14 +59,15 @@ public class ArhRoleStore : IRoleStore<ApplicationRole>
     /// </summary>
     public async Task<IdentityResult> DeleteAsync(ApplicationRole role, CancellationToken cancellationToken)
     {
-        var entity = await _context.Roles.FirstOrDefaultAsync(r => r.Id == role.Id, cancellationToken);
+        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+        var entity = await context.Roles.FirstOrDefaultAsync(r => r.Id == role.Id, cancellationToken);
         if (entity is null)
         {
             return IdentityResult.Success;
         }
 
-        _context.Roles.Remove(entity);
-        await _context.SaveChangesAsync(cancellationToken);
+        context.Roles.Remove(entity);
+        await context.SaveChangesAsync(cancellationToken);
         return IdentityResult.Success;
     }
 
@@ -120,7 +123,8 @@ public class ArhRoleStore : IRoleStore<ApplicationRole>
             return null;
         }
 
-        var entity = await _context.Roles.FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
+        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+        var entity = await context.Roles.FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
         if (entity is null)
         {
             return null;
@@ -140,7 +144,8 @@ public class ArhRoleStore : IRoleStore<ApplicationRole>
     /// </summary>
     public async Task<ApplicationRole?> FindByNameAsync(string normalizedRoleName, CancellationToken cancellationToken)
     {
-        var entity = await _context.Roles.FirstOrDefaultAsync(r => r.Name.ToUpper() == normalizedRoleName, cancellationToken);
+        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+        var entity = await context.Roles.FirstOrDefaultAsync(r => r.Name.ToUpper() == normalizedRoleName, cancellationToken);
         if (entity is null)
         {
             return null;

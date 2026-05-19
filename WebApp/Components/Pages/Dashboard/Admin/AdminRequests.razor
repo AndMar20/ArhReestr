@@ -1,0 +1,284 @@
+@page "/admin/requests"
+@using WebApp.ViewModels
+@attribute [Authorize(Policy = "RequireAdmin")]
+@inject ReportService ReportService
+@inject InteractionService InteractionService
+@inject LookupService LookupService
+
+<PageTitle>Заявки</PageTitle>
+
+@if (IsLoading)
+{
+    <div class="alert info">Загружаем заявки...</div>
+}
+else
+{
+    <section class="hero-card admin-hero">
+        <div class="section-header">
+            <div>
+                <h1 class="section-title">Заявки</h1>
+                <p class="section-sub">Фильтруйте обращения, меняйте статус и ответственного риелтора.</p>
+            </div>
+        </div>
+        <AdminNav />
+    </section>
+
+    @if (!string.IsNullOrEmpty(Notification))
+    {
+        <div class="alert @NotificationStyle">@Notification</div>
+    }
+
+    <div class="panel">
+        <div class="section-header">
+            <div>
+                <h2>Все заявки</h2>
+                <p class="small-text">@FilteredInteractions.Count из @Interactions.Count записей</p>
+            </div>
+        </div>
+
+        <div class="admin-filter-bar">
+            <label>Поиск
+                <input @bind="InteractionSearch" @bind:event="oninput" placeholder="Клиент, риелтор, объект" />
+            </label>
+            <label>Статус
+                <select @bind="StatusFilter">
+                    <option value="">Все статусы</option>
+                    @foreach (var status in StatusOptions)
+                    {
+                        <option value="@status.Id">@status.Name</option>
+                    }
+                </select>
+            </label>
+            <label>Риелтор
+                <select @bind="AgentFilter">
+                    <option value="">Все риелторы</option>
+                    @foreach (var agent in AgentOptions)
+                    {
+                        <option value="@agent.Key">@agent.Value</option>
+                    }
+                </select>
+            </label>
+            <button type="button" class="ghost filter-reset-button" @onclick="ResetInteractionFilters">Сбросить</button>
+        </div>
+
+        @if (FilteredInteractions.Count == 0)
+        {
+            <p class="muted">Подходящих заявок нет.</p>
+        }
+        else
+        {
+            <div class="table-wrapper">
+                <table class="data-table stacked-table">
+                    <thead>
+                        <tr>
+                            <th>Клиент</th>
+                            <th>Риелтор</th>
+                            <th>Объект</th>
+                            <th>Статус</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var interaction in FilteredInteractions)
+                        {
+                            <tr class="@(SelectedInteraction?.Id == interaction.Id ? "selected" : string.Empty)">
+                                <td data-label="Клиент">
+                                    <div class="cell-primary">@interaction.Client</div>
+                                    <div class="cell-note">Связался: @DateTimeDisplay.Format(interaction.ContactedAt)</div>
+                                </td>
+                                <td data-label="Риелтор">
+                                    <div class="cell-primary">@interaction.Agent</div>
+                                    <div class="cell-note">@interaction.AgentPhone</div>
+                                </td>
+                                <td data-label="Объект">
+                                    <a class="cell-primary" href="@BuildObjectUrl(interaction.RealEstateId)">@interaction.RealEstate</a>
+                                    <div class="cell-note">Обновлено: @DateTimeDisplay.Format(interaction.UpdatedAt)</div>
+                                </td>
+                                <td data-label="Статус" class="status-cell">
+                                    <span class="badge @GetStatusBadge(interaction.Status)">@interaction.Status</span>
+                                </td>
+                                <td class="actions-row table-actions" data-label="Действия">
+                                    <button type="button" @onclick="() => SelectInteractionAsync(interaction)">Изменить</button>
+                                    <a class="ghost" href="@BuildObjectUrl(interaction.RealEstateId)">К объекту</a>
+                                </td>
+                            </tr>
+
+                            @if (SelectedInteraction?.Id == interaction.Id)
+                            {
+                                <tr class="inline-editor">
+                                    <td colspan="5">
+                                        <div class="panel-section">
+                                            <p class="small-text">
+                                                Клиент: <strong>@SelectedInteraction.Client</strong><br />
+                                                Телефон: <strong>@SelectedInteraction.ClientPhone</strong>
+                                            </p>
+                                            <EditForm Model="UpdateModel" OnValidSubmit="UpdateInteractionAsync" class="form-stack" FormName="adminRequestUpdateForm">
+                                                <h3>Редактирование заявки #@SelectedInteraction.Id</h3>
+                                                <label>Статус
+                                                    <InputSelect @bind-Value="UpdateModel.StatusId">
+                                                        @foreach (var status in StatusOptions)
+                                                        {
+                                                            <option value="@status.Id">@status.Name</option>
+                                                        }
+                                                    </InputSelect>
+                                                </label>
+                                                <label>Риелтор
+                                                    <InputSelect @bind-Value="UpdateModel.AgentId">
+                                                        @foreach (var agent in AgentOptions)
+                                                        {
+                                                            <option value="@agent.Key">@agent.Value</option>
+                                                        }
+                                                    </InputSelect>
+                                                </label>
+                                                <label>Комментарий
+                                                    <InputTextArea @bind-Value="UpdateModel.Notes" rows="3" />
+                                                </label>
+                                                <div class="actions-row">
+                                                    <button type="submit" class="primary">Сохранить изменения</button>
+                                                    <button type="button" class="ghost" @onclick="ResetSelection">Отмена</button>
+                                                </div>
+                                            </EditForm>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private readonly List<InteractionSummary> Interactions = new();
+    private readonly List<DataLayer.Models.InteractionStatus> StatusOptions = new();
+    private Dictionary<int, string> AgentOptions { get; set; } = new();
+    private readonly AdminInteractionUpdateRequest UpdateModel = new();
+    private InteractionSummary? SelectedInteraction;
+    private string? Notification;
+    private string NotificationStyle { get; set; } = "info";
+    private bool IsLoading { get; set; } = true;
+    private string InteractionSearch { get; set; } = string.Empty;
+    private int? StatusFilter { get; set; }
+    private int? AgentFilter { get; set; }
+
+    private List<InteractionSummary> FilteredInteractions => Interactions
+        .Where(i => StatusFilter is null || i.StatusId == StatusFilter)
+        .Where(i => AgentFilter is null || i.AgentId == AgentFilter)
+        .Where(MatchesSearch)
+        .ToList();
+
+    private static string GetStatusBadge(string status)
+    {
+        if (status.Contains("заверш", StringComparison.OrdinalIgnoreCase))
+        {
+            return "success";
+        }
+
+        if (status.Contains("работ", StringComparison.OrdinalIgnoreCase) || status.Contains("встреч", StringComparison.OrdinalIgnoreCase))
+        {
+            return "accent";
+        }
+
+        if (status.Contains("отказ", StringComparison.OrdinalIgnoreCase))
+        {
+            return "danger";
+        }
+
+        return string.Empty;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            StatusOptions.AddRange(await InteractionService.GetStatusesAsync());
+            AgentOptions = await LookupService.GetAgentsAsync();
+            await LoadInteractionsAsync();
+        }
+        catch (InvalidOperationException ex)
+        {
+            Notification = ex.Message;
+            NotificationStyle = "error";
+        }
+        catch (Exception ex)
+        {
+            Notification = DatabaseErrorMessages.Resolve(ex);
+            NotificationStyle = "error";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private bool MatchesSearch(InteractionSummary interaction)
+    {
+        if (string.IsNullOrWhiteSpace(InteractionSearch))
+        {
+            return true;
+        }
+
+        var term = InteractionSearch.Trim();
+        return interaction.Client.Contains(term, StringComparison.OrdinalIgnoreCase)
+            || interaction.Agent.Contains(term, StringComparison.OrdinalIgnoreCase)
+            || interaction.RealEstate.Contains(term, StringComparison.OrdinalIgnoreCase)
+            || interaction.ClientPhone.Contains(term, StringComparison.OrdinalIgnoreCase)
+            || interaction.AgentPhone.Contains(term, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void ResetInteractionFilters()
+    {
+        InteractionSearch = string.Empty;
+        StatusFilter = null;
+        AgentFilter = null;
+    }
+
+    private async Task LoadInteractionsAsync()
+    {
+        var data = await InteractionService.GetAdminInteractionsAsync();
+        Interactions.Clear();
+        Interactions.AddRange(data);
+    }
+
+    private async Task SelectInteractionAsync(InteractionSummary interaction)
+    {
+        SelectedInteraction = interaction;
+        UpdateModel.InteractionId = interaction.Id;
+        UpdateModel.StatusId = interaction.StatusId;
+        UpdateModel.AgentId = interaction.AgentId;
+        UpdateModel.Notes = interaction.Notes;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void ResetSelection()
+    {
+        SelectedInteraction = null;
+    }
+
+    private static string BuildObjectUrl(int id) => $"/real-estate/{id}?returnUrl={Uri.EscapeDataString("/admin/requests")}";
+
+    private async Task UpdateInteractionAsync()
+    {
+        try
+        {
+            Notification = null;
+            await InteractionService.UpdateByAdminAsync(UpdateModel);
+            await LoadInteractionsAsync();
+            Notification = "Заявка обновлена";
+            NotificationStyle = "success";
+            SelectedInteraction = null;
+        }
+        catch (InvalidOperationException ex)
+        {
+            Notification = ex.Message;
+            NotificationStyle = "error";
+        }
+        catch (Exception ex)
+        {
+            Notification = DatabaseErrorMessages.Resolve(ex);
+            NotificationStyle = "error";
+        }
+    }
+}

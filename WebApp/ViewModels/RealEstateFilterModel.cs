@@ -11,6 +11,8 @@ public class RealEstateFilterModel : IValidatableObject
 
     public int? DistrictId { get; set; }
 
+    public int? StreetId { get; set; }
+
     public int? TypeId { get; set; }
 
     [Range(typeof(decimal), "0", "999999999", ErrorMessage = "Цена не может быть отрицательной")]
@@ -33,6 +35,8 @@ public class RealEstateFilterModel : IValidatableObject
     public bool? HasParking { get; set; }
 
     public bool? HasElevator { get; set; }
+
+    public bool IncludeUnavailable { get; set; }
 
     public string SortBy { get; set; } = "price";
 

@@ -9,11 +9,16 @@ public class ChatService
 {
     private readonly IDbContextFactory<ArhReestrContext> _contextFactory;
     private readonly TimeProvider _timeProvider;
+    private readonly NotificationService _notificationService;
 
-    public ChatService(IDbContextFactory<ArhReestrContext> contextFactory, TimeProvider timeProvider)
+    public ChatService(
+        IDbContextFactory<ArhReestrContext> contextFactory,
+        TimeProvider timeProvider,
+        NotificationService notificationService)
     {
         _contextFactory = contextFactory;
         _timeProvider = timeProvider;
+        _notificationService = notificationService;
     }
 
     public async Task<int> SendAsync(int realEstateId, int senderId, int recipientId, string message, CancellationToken token = default)
@@ -30,6 +35,20 @@ public class ChatService
 
         context.ChatMessages.Add(entity);
         await context.SaveChangesAsync(token);
+
+        var senderName = await context.Users
+            .AsNoTracking()
+            .Where(user => user.Id == senderId)
+            .Select(user => user.LastName + " " + user.FirstName)
+            .FirstOrDefaultAsync(token);
+
+        var linkUrl = $"/chat?realEstateId={realEstateId}&peerId={senderId}";
+        await _notificationService.CreateAsync(
+            recipientId,
+            "Новое сообщение",
+            $"{(string.IsNullOrWhiteSpace(senderName) ? "Собеседник" : senderName)} написал по объекту #{realEstateId}.",
+            linkUrl,
+            token);
         return entity.Id;
     }
 

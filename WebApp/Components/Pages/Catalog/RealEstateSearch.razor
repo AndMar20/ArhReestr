@@ -2,6 +2,7 @@
 @page "/search"
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.AspNetCore.Identity
+@using global::System.Globalization
 @using global::System.Linq
 @using global::System.Security.Claims
 @implements IDisposable
@@ -11,6 +12,7 @@
 @inject UserManager<ApplicationUser> UserManager
 @inject NavigationManager NavigationManager
 @inject FavoriteService FavoriteService
+@inject IJSRuntime JS
 
 <PageTitle>Каталог объектов</PageTitle>
 
@@ -24,32 +26,18 @@
                 <div class="segmented-control" role="group" aria-label="Режим отображения">
                     <button type="button" class='@GetSegmentedClass("cards")' @onclick='() => SetViewMode("cards")'>Карточки</button>
                     <button type="button" class='@GetSegmentedClass("list")' @onclick='() => SetViewMode("list")'>Список</button>
+                    <button type="button" class='@GetSegmentedClass("map")' @onclick='() => SetViewMode("map")'>Карта</button>
                 </div>
-                <button class="ghost" type="button" @onclick="ResetFiltersAsync" disabled="@IsLoading">Сбросить фильтры</button>
                 <div class="tag-pill action">@StatusText</div>
             </div>
         </div>
 
-    <div class="quick-filters">
-        <span class="muted">Быстрые фильтры:</span>
-        <div class="chip-row">
-            <button type="button" class="chip ghost" @onclick="() => ApplyQuickFilterAsync(1, null, null, null)">1-комнатные</button>
-            <button type="button" class="chip ghost" @onclick="() => ApplyQuickFilterAsync(2, null, null, null)">2-комнатные</button>
-            <button type="button" class="chip ghost" @onclick="() => ApplyQuickFilterAsync(null, true, null, null)">С балконом</button>
-            <button type="button" class="chip ghost" @onclick="() => ApplyQuickFilterAsync(null, null, true, null)">Парковка</button>
-            <button type="button" class="chip ghost reset-btn" @onclick="ResetFiltersAsync">Сбросить всё</button>
-        </div>
-    </div>
-    <br/>
-    <div class="filters-toggle">
-        <button class="ghost" type="button" @onclick="ToggleFilters">@FilterToggleText</button>
-    </div>
-    <EditForm EditContext="filterContext" class="@FiltersCardClass" FormName="realEstateFilterForm" OnValidSubmit="OnFilterAsync">
+    <EditForm EditContext="filterContext" class="catalog-search-form" FormName="realEstateFilterForm" OnValidSubmit="OnFilterAsync">
         <DataAnnotationsValidator />
         <ValidationSummary />
-        <div class="filters">
+        <div class="catalog-filter-bar">
             <label>Район
-                <InputSelect @bind-Value="Filter.DistrictId" @onchange="ScheduleFilterAsync">
+                <InputSelect @bind-Value="Filter.DistrictId">
                     <option value="">Все районы</option>
                     @foreach (var district in Districts)
                     {
@@ -58,7 +46,7 @@
                 </InputSelect>
             </label>
             <label>Тип
-                <InputSelect @bind-Value="Filter.TypeId" @onchange="ScheduleFilterAsync">
+                <InputSelect @bind-Value="Filter.TypeId">
                     <option value="">Все типы</option>
                     @foreach (var type in Types)
                     {
@@ -66,58 +54,77 @@
                     }
                 </InputSelect>
             </label>
-            <label>Цена от
-                <InputNumber @bind-Value="Filter.MinPrice" min="0" step="50000" @oninput="ScheduleFilterAsync" />
-                <ValidationMessage For="@(() => Filter.MinPrice)" />
-            </label>
-            <label>Цена до
-                <InputNumber @bind-Value="Filter.MaxPrice" min="0" step="50000" @oninput="ScheduleFilterAsync" />
-                <ValidationMessage For="@(() => Filter.MaxPrice)" />
-            </label>
-            <label>Площадь от
-                <InputNumber @bind-Value="Filter.MinArea" min="0" step="1" />
-                <ValidationMessage For="@(() => Filter.MinArea)" />
-            </label>
-            <label>Площадь до
-                <InputNumber @bind-Value="Filter.MaxArea" min="0" step="1" />
-                <ValidationMessage For="@(() => Filter.MaxArea)" />
-            </label>
-            <label>Комнаты
-                <InputNumber @bind-Value="Filter.Rooms" min="0" step="1" />
-                <ValidationMessage For="@(() => Filter.Rooms)" />
-            </label>
-            <label class="checkbox-inline">
-                <InputCheckbox class="checkbox-control" @bind-Value="balconyRequired" @onchange="ScheduleFilterAsync" />
-                <span>Балкон</span>
-            </label>
-            <label class="checkbox-inline">
-                <InputCheckbox class="checkbox-control" @bind-Value="parkingRequired" @onchange="ScheduleFilterAsync" />
-                <span>Парковка</span>
-            </label>
-            <label class="checkbox-inline">
-                <InputCheckbox class="checkbox-control" @bind-Value="elevatorRequired" @onchange="ScheduleFilterAsync" />
-                <span>Лифт</span>
-            </label>
-        </div>
-        <div class="actions-row">
             <label>Сортировка
-                <InputSelect @bind-Value="Filter.SortBy" @onchange="OnSortChanged">
-                    <option value="price">По цене</option>
-                    <option value="area">По площади</option>
-                    <option value="rooms">По комнатам</option>
-                    <option value="district">По району</option>
-                </InputSelect>
+                <select value="@SortPreset" @onchange="OnSortPresetChanged">
+                    <option value="price_asc">Сначала дешевле</option>
+                    <option value="price_desc">Сначала дороже</option>
+                    <option value="area_desc">Больше площадь</option>
+                    <option value="area_asc">Меньше площадь</option>
+                    <option value="rooms_asc">Меньше комнат</option>
+                    <option value="district_asc">По району</option>
+                </select>
             </label>
-            <label>Порядок
-                <InputSelect @bind-Value="sortDirection" @onchange="OnSortDirectionChanged" disabled="@IsLoading">
-                    <option value="asc">По возрастанию</option>
-                    <option value="desc">По убыванию</option>
-                </InputSelect>
-            </label>
-            <div class="buttons" style="align-items:flex-end;">
-                <button type="submit" class="primary" disabled="@IsLoading">Применить</button>
-            </div>
+            <button class="ghost filter-more-button" type="button" @onclick="ToggleFilters">
+                Ещё фильтры
+                @if (AdvancedFilterCount > 0)
+                {
+                    <span class="filter-count">@AdvancedFilterCount</span>
+                }
+            </button>
+            <button class="ghost filter-reset-button" type="button" @onclick="ResetFiltersAsync" disabled="@IsLoading">Сбросить параметры</button>
         </div>
+
+        @if (filtersVisible)
+        {
+            <div class="filter-drawer-backdrop" @onclick="ToggleFilters">
+                <div class="filter-drawer" @onclick:stopPropagation="true">
+                    <div class="section-header">
+                        <div>
+                            <h2>Дополнительные фильтры</h2>
+                            <p class="section-sub">Параметры применяются автоматически.</p>
+                        </div>
+                        <button type="button" class="ghost" @onclick="ToggleFilters">Закрыть</button>
+                    </div>
+                    <div class="advanced-filters">
+                        <label>Цена от
+                            <input type="number" value="@Filter.MinPrice" min="0" step="50000" @oninput="OnMinPriceInputAsync" />
+                            <ValidationMessage For="@(() => Filter.MinPrice)" />
+                        </label>
+                        <label>Цена до
+                            <input type="number" value="@Filter.MaxPrice" min="0" step="50000" @oninput="OnMaxPriceInputAsync" />
+                            <ValidationMessage For="@(() => Filter.MaxPrice)" />
+                        </label>
+                        <label>Комнаты
+                            <input type="number" value="@Filter.Rooms" min="0" step="1" @oninput="OnRoomsInputAsync" />
+                            <ValidationMessage For="@(() => Filter.Rooms)" />
+                        </label>
+                        <label>Площадь от
+                            <input type="number" value="@Filter.MinArea" min="0" step="0.01" @oninput="OnMinAreaInputAsync" />
+                            <ValidationMessage For="@(() => Filter.MinArea)" />
+                        </label>
+                        <label>Площадь до
+                            <input type="number" value="@Filter.MaxArea" min="0" step="0.01" @oninput="OnMaxAreaInputAsync" />
+                            <ValidationMessage For="@(() => Filter.MaxArea)" />
+                        </label>
+                        <label class="checkbox-inline filter-check">
+                            <InputCheckbox class="checkbox-control" @bind-Value="balconyRequired" @onchange="ScheduleFilterAsync" />
+                            <span>Балкон</span>
+                        </label>
+                        <label class="checkbox-inline filter-check">
+                            <InputCheckbox class="checkbox-control" @bind-Value="parkingRequired" @onchange="ScheduleFilterAsync" />
+                            <span>Парковка</span>
+                        </label>
+                        <label class="checkbox-inline filter-check">
+                            <InputCheckbox class="checkbox-control" @bind-Value="elevatorRequired" @onchange="ScheduleFilterAsync" />
+                            <span>Лифт</span>
+                        </label>
+                    </div>
+                    <div class="actions-row">
+                        <button type="button" class="ghost" @onclick="ResetFiltersAsync" disabled="@IsLoading">Сбросить фильтры</button>
+                    </div>
+                </div>
+            </div>
+        }
     </EditForm>
 </section>
 
@@ -139,7 +146,7 @@ else
     <div class="panel" style="margin-top:1.5rem;">
         <div class="section-header">
             <h2>Объекты</h2>
-            <span class="small-text">@TotalResults записей · @PaginationStatus</span>
+            <span class="small-text">@ResultsStatusText</span>
         </div>
 
         @if (viewMode == "cards")
@@ -150,7 +157,7 @@ else
                     <article class="card">
                         @if (!string.IsNullOrEmpty(item.PrimaryPhoto))
                         {
-                            <a class="card-photo" href="/real-estate/@item.Id">
+                            <a class="card-photo" href="@BuildObjectUrl(item.Id)">
                                 <img src="@item.PrimaryPhoto" alt="Фото объекта" />
                             </a>
                         }
@@ -187,10 +194,14 @@ else
                             </div>
 
                             <div class="card-actions">
-                                <button @onclick="() => ContactAsync(item)"
-                                        disabled="@(IsLoading || pendingFilter || contactingItems.Contains(item.Id))">
-                                    @(contactingItems.Contains(item.Id) ? "Отправка..." : "Оставить заявку")
-                                </button>
+                                @if (CanRequestInteraction)
+                                {
+                                    <button @onclick="() => ContactAsync(item)"
+                                            disabled="@(IsLoading || pendingFilter || contactingItems.Contains(item.Id))"
+                                            class="@(activeRequestIds.ContainsKey(item.Id) ? "danger" : string.Empty)">
+                                        @(GetInteractionButtonText(item.Id))
+                                    </button>
+                                }
 
                                 <button class="icon-button favorite-button @(favoriteIds.Contains(item.Id) ? "active" : string.Empty)"
                                         @onclick="() => ToggleFavoriteAsync(item.Id)"
@@ -201,14 +212,14 @@ else
                                     </span>
                                 </button>
 
-                                <a class="ghost" href="/real-estate/@item.Id">Подробнее</a>
+                                <a class="ghost" href="@BuildObjectUrl(item.Id)">Подробнее</a>
                             </div>
                         </div>
                     </article>
                 }
             </div>
         }
-        else
+        else if (viewMode == "list")
         {
             <div class="table-wrapper">
                 <table class="data-table stacked-table">
@@ -238,14 +249,19 @@ else
                                 <td data-label="Цена">@item.Price.ToString("N0") ₽</td>
                                 <td data-label="Риелтор">@item.Agent</td>
                                 <td class="actions-row table-actions" data-label="Действия">
-                                    <button @onclick="() => ContactAsync(item)" disabled="@(IsLoading || pendingFilter || contactingItems.Contains(item.Id))">
-                                        @(contactingItems.Contains(item.Id) ? "Отправка..." : "Оставить заявку")
-                                    </button>
+                                    @if (CanRequestInteraction)
+                                    {
+                                        <button @onclick="() => ContactAsync(item)"
+                                                disabled="@(IsLoading || pendingFilter || contactingItems.Contains(item.Id))"
+                                                class="@(activeRequestIds.ContainsKey(item.Id) ? "danger" : string.Empty)">
+                                            @(GetInteractionButtonText(item.Id))
+                                        </button>
+                                    }
                                     <button class="icon-button favorite-button @(favoriteIds.Contains(item.Id) ? "active" : string.Empty)" @onclick="() => ToggleFavoriteAsync(item.Id)" disabled="@(IsLoading || pendingFilter)">
                                         <span aria-hidden="true">★</span>
                                         <span class="sr-only">@(favoriteIds.Contains(item.Id) ? "Убрать из избранного" : "Добавить в избранное")</span>
                                     </button>
-                                    <a class="ghost" href="/real-estate/@item.Id">Подробнее</a>
+                                    <a class="ghost" href="@BuildObjectUrl(item.Id)">Подробнее</a>
                                 </td>
                             </tr>
                         }
@@ -253,14 +269,36 @@ else
                 </table>
             </div>
         }
+        else
+        {
+            var mapItems = MapItems.ToList();
+
+            @if (isMapLoading)
+            {
+                <p>Загрузка объектов на карте...</p>
+            }
+            else if (mapItems.Count == 0)
+            {
+                <div class="empty-map">
+                    <h3>Нет объектов с координатами</h3>
+                    <p class="section-sub">Для отображения на карте у объекта должны быть заполнены широта и долгота.</p>
+                </div>
+            }
+            else
+            {
+                <div class="catalog-map">
+                    <div id="catalog-map-canvas"></div>
+                </div>
+            }
+        }
     </div>
 }
 
-@if (Results.Any())
+@if (Results.Any() && viewMode != "map")
 {
     <div class="actions-row" style="margin:0.5rem 0 0;">
         <div class="badge">Страница @Filter.Page из @(TotalPages == 0 ? 1 : TotalPages)</div>
-        <div class="badge accent">Режим: @(viewMode == "cards" ? "карточки" : "список")</div>
+        <div class="badge accent">Режим: @ViewModeLabel</div>
         <div class="buttons">
             <button @onclick="PreviousPageAsync" disabled="@(IsLoading || !HasPreviousPage)">Предыдущая</button>
             <button @onclick="NextPageAsync" disabled="@(IsLoading || !HasNextPage)">Следующая</button>
@@ -269,8 +307,18 @@ else
 }
 
 @code {
+    [SupplyParameterFromQuery(Name = "view")]
+    public string? ViewModeQuery { get; set; }
+
+    [SupplyParameterFromQuery(Name = "districtId")]
+    public int? DistrictIdQuery { get; set; }
+
+    [SupplyParameterFromQuery(Name = "streetId")]
+    public int? StreetIdQuery { get; set; }
+
     private readonly RealEstateFilterModel Filter = new();
     private readonly List<RealEstateSummary> Results = new();
+    private readonly List<RealEstateSummary> MapResults = new();
     private EditContext? filterContext;
     private CancellationTokenSource? filterDelayCts;
     private List<DataLayer.Models.District> Districts { get; set; } = new();
@@ -285,8 +333,12 @@ else
     private bool pendingFilter;
     private bool isDebouncingFilter;
     private bool filtersVisible = false;
+    private bool CanRequestInteraction = true;
+    private bool isMapLoading;
+    private bool shouldRenderMap;
     private int TotalResults;
     private string sortDirection = "asc";
+    private string SortPreset = "price_asc";
     private string viewMode = "cards";
     private const int FilterDelayMs = 400;
     private string AveragePriceText => Results.Count == 0 ? "—" : $"{(int)Results.Average(r => r.Price):N0} ₽";
@@ -295,8 +347,15 @@ else
         .GroupBy(r => r.District)
         .OrderByDescending(g => g.Count())
         .First().Key;
-    private string FilterToggleText => filtersVisible ? "Скрыть фильтры" : "Показать фильтры";
-    private string FiltersCardClass => filtersVisible ? "filters-card" : "filters-card hidden";
+    private int AdvancedFilterCount =>
+        (Filter.MinPrice.HasValue ? 1 : 0) +
+        (Filter.MaxPrice.HasValue ? 1 : 0) +
+        (Filter.Rooms.HasValue ? 1 : 0) +
+        (Filter.MinArea.HasValue ? 1 : 0) +
+        (Filter.MaxArea.HasValue ? 1 : 0) +
+        (balconyRequired ? 1 : 0) +
+        (parkingRequired ? 1 : 0) +
+        (elevatorRequired ? 1 : 0);
     private string StatusText => IsLoading
         ? "Загрузка..."
         : pendingFilter
@@ -308,23 +367,41 @@ else
     private bool HasNextPage => TotalPages > 0 && Filter.Page < TotalPages;
     private bool HasPreviousPage => Filter.Page > 1;
     private string PaginationStatus => TotalResults == 0 ? "нет результатов" : $"страница {Filter.Page} из {TotalPages}";
+    private string ResultsStatusText => viewMode == "map"
+        ? $"{MapItems.Count()} на карте · всего {TotalResults}"
+        : $"{TotalResults} записей · {PaginationStatus}";
+    private string ViewModeLabel => viewMode switch
+    {
+        "list" => "список",
+        "map" => "карта",
+        _ => "карточки"
+    };
+    private IEnumerable<RealEstateSummary> MapItems => MapResults.Where(r => r.Latitude.HasValue && r.Longitude.HasValue);
     private readonly HashSet<int> favoriteIds = new();
+    private readonly Dictionary<int, int> activeRequestIds = new();
     private const decimal DefaultRate = 9.5m;
     private const int DefaultYears = 20;
     private const decimal DefaultDownPaymentShare = 0.2m;
 
     protected override void OnInitialized()
     {
+        viewMode = NormalizeViewMode(ViewModeQuery);
+        Filter.DistrictId = DistrictIdQuery;
+        Filter.StreetId = StreetIdQuery;
         Filter.PageSize = 15;
         filterContext = new EditContext(Filter);
         filterContext.EnableDataAnnotationsValidation();
         filterContext.OnFieldChanged += OnFilterFieldChanged;
     }
 
-    private Task SetViewMode(string mode)
+    private async Task SetViewMode(string mode)
     {
-        viewMode = mode;
-        return Task.CompletedTask;
+        viewMode = NormalizeViewMode(mode);
+        if (viewMode == "map")
+        {
+            await LoadMapAsync();
+            shouldRenderMap = true;
+        }
     }
 
     private string GetSegmentedClass(string mode)
@@ -342,10 +419,18 @@ else
         try
         {
             IsLoading = true;
+            var state = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var role = state.User.FindFirst(ClaimTypes.Role)?.Value ?? "client";
+            CanRequestInteraction = state.User.Identity?.IsAuthenticated != true || role is "client" or "admin";
             Districts = (await RealEstateService.GetDistrictsAsync()).ToList();
             Types = (await RealEstateService.GetTypesAsync()).ToList();
 
             await LoadAsync();
+            if (viewMode == "map")
+            {
+                await LoadMapAsync();
+                shouldRenderMap = true;
+            }
         }
         catch (InvalidOperationException ex)
         {
@@ -373,13 +458,17 @@ else
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender)
+        if (firstRender)
         {
-            return;
+            await LoadFavoritesAsync();
+            StateHasChanged();
         }
 
-        await LoadFavoritesAsync();
-        StateHasChanged();
+        if (shouldRenderMap && viewMode == "map")
+        {
+            shouldRenderMap = false;
+            await RenderMapAsync();
+        }
     }
 
     private readonly HashSet<int> contactingItems = new();
@@ -402,6 +491,63 @@ else
         {
             // intentionally ignored
         }
+    }
+
+    private Task OnMinPriceInputAsync(ChangeEventArgs args)
+    {
+        Filter.MinPrice = ParseDecimal(args.Value);
+        Filter.Page = 1;
+        return ScheduleFilterAsync();
+    }
+
+    private Task OnMaxPriceInputAsync(ChangeEventArgs args)
+    {
+        Filter.MaxPrice = ParseDecimal(args.Value);
+        Filter.Page = 1;
+        return ScheduleFilterAsync();
+    }
+
+    private Task OnMinAreaInputAsync(ChangeEventArgs args)
+    {
+        Filter.MinArea = ParseDecimal(args.Value);
+        Filter.Page = 1;
+        return ScheduleFilterAsync();
+    }
+
+    private Task OnMaxAreaInputAsync(ChangeEventArgs args)
+    {
+        Filter.MaxArea = ParseDecimal(args.Value);
+        Filter.Page = 1;
+        return ScheduleFilterAsync();
+    }
+
+    private Task OnRoomsInputAsync(ChangeEventArgs args)
+    {
+        Filter.Rooms = ParseInt(args.Value);
+        Filter.Page = 1;
+        return ScheduleFilterAsync();
+    }
+
+    private static decimal? ParseDecimal(object? value)
+    {
+        var text = value?.ToString();
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return null;
+        }
+
+        text = text.Replace(',', '.');
+        return decimal.TryParse(text, NumberStyles.Number, CultureInfo.InvariantCulture, out var parsed)
+            ? parsed
+            : null;
+    }
+
+    private static int? ParseInt(object? value)
+    {
+        var text = value?.ToString();
+        return int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed)
+            ? parsed
+            : null;
     }
 
     private void OnFilterFieldChanged(object? sender, FieldChangedEventArgs e)
@@ -453,6 +599,7 @@ else
     private Task ResetFiltersAsync()
     {
         Filter.DistrictId = null;
+        Filter.StreetId = null;
         Filter.TypeId = null;
         Filter.MinPrice = null;
         Filter.MaxPrice = null;
@@ -464,8 +611,9 @@ else
         Filter.SortBy = "price";
         Filter.SortDescending = false;
         Filter.Page = 1;
-        Filter.PageSize = 12;
+        Filter.PageSize = 15;
         sortDirection = "asc";
+        SortPreset = "price_asc";
 
         // локальные чекбоксы
         balconyRequired = false;
@@ -501,6 +649,14 @@ else
                 await LoadAsync();
                 return;
             }
+
+            if (viewMode == "map")
+            {
+                await LoadMapAsync();
+                shouldRenderMap = true;
+            }
+
+            await LoadActiveRequestsAsync();
         }
         catch (InvalidOperationException ex)
         {
@@ -543,6 +699,49 @@ else
         }
     }
 
+    private async Task LoadActiveRequestsAsync()
+    {
+        activeRequestIds.Clear();
+
+        if (!CanRequestInteraction || Results.Count == 0)
+        {
+            return;
+        }
+
+        var state = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        if (state.User.Identity?.IsAuthenticated != true)
+        {
+            return;
+        }
+
+        var userIdString = state.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(userIdString, out var userId))
+        {
+            return;
+        }
+
+        foreach (var item in Results)
+        {
+            var requestId = await InteractionService.GetActiveInteractionIdAsync(userId, item.Id);
+            if (requestId.HasValue)
+            {
+                activeRequestIds[item.Id] = requestId.Value;
+            }
+        }
+    }
+
+    private string GetInteractionButtonText(int realEstateId)
+    {
+        if (contactingItems.Contains(realEstateId))
+        {
+            return "Обработка...";
+        }
+
+        return activeRequestIds.ContainsKey(realEstateId)
+            ? "Отменить заявку"
+            : "Оставить заявку";
+    }
+
     private async Task ContactAsync(RealEstateSummary item)
     {
         if (contactingItems.Contains(item.Id))
@@ -555,7 +754,7 @@ else
         var state = await AuthenticationStateProvider.GetAuthenticationStateAsync();
         if (state.User.Identity?.IsAuthenticated != true)
         {
-            NavigationManager.NavigateTo("/login?returnUrl=/search");
+            NavigationManager.NavigateTo($"/login?returnUrl={Uri.EscapeDataString(BuildCatalogReturnUrl())}");
             contactingItems.Remove(item.Id);
             return;
         }
@@ -580,8 +779,18 @@ else
 
         try
         {
-            await InteractionService.CreateInteractionAsync(userId, item.AgentId, item.Id, "Заявка из каталога");
-            Notification = "Заявка отправлена. Контакты риелтора отображаются в кабинете клиента.";
+            if (activeRequestIds.ContainsKey(item.Id))
+            {
+                await InteractionService.CancelByClientAndEstateAsync(userId, item.Id);
+                activeRequestIds.Remove(item.Id);
+                Notification = "Заявка отменена.";
+            }
+            else
+            {
+                var requestId = await InteractionService.CreateInteractionAsync(userId, item.AgentId, item.Id, "Заявка из каталога");
+                activeRequestIds[item.Id] = requestId;
+                Notification = "Заявка отправлена. Контакты риелтора отображаются в кабинете клиента.";
+            }
             NotificationStyle = "success";
         }
         catch (Exception)
@@ -600,6 +809,22 @@ else
         Filter.Page = 1;
         Filter.SortDescending = sortDirection == "desc";
         return OnFilterAsync();
+    }
+
+    private Task OnSortPresetChanged(ChangeEventArgs args)
+    {
+        SortPreset = args.Value?.ToString() ?? "price_asc";
+        ApplySortPreset();
+        Filter.Page = 1;
+        return OnFilterAsync();
+    }
+
+    private void ApplySortPreset()
+    {
+        var parts = SortPreset.Split('_', 2, StringSplitOptions.RemoveEmptyEntries);
+        Filter.SortBy = parts.ElementAtOrDefault(0) ?? "price";
+        sortDirection = parts.ElementAtOrDefault(1) == "desc" ? "desc" : "asc";
+        Filter.SortDescending = sortDirection == "desc";
     }
 
     private Task OnSortDirectionChanged(ChangeEventArgs args)
@@ -638,7 +863,75 @@ else
         return LoadAsync();
     }
 
-private async Task ToggleFavoriteAsync(int id)
+    private async Task LoadMapAsync()
+    {
+        if (isMapLoading)
+        {
+            return;
+        }
+
+        isMapLoading = true;
+        MapResults.Clear();
+
+        try
+        {
+            var mapFilter = CloneFilterForMap(1);
+            PagedResult<RealEstateSummary>? page;
+            do
+            {
+                page = await RealEstateService.SearchAsync(mapFilter);
+                MapResults.AddRange(page.Items);
+                mapFilter.Page++;
+            }
+            while (page.Items.Count > 0 && MapResults.Count < page.TotalCount);
+        }
+        finally
+        {
+            isMapLoading = false;
+        }
+    }
+
+    private RealEstateFilterModel CloneFilterForMap(int page)
+    {
+        return new RealEstateFilterModel
+        {
+            DistrictId = Filter.DistrictId,
+            StreetId = Filter.StreetId,
+            TypeId = Filter.TypeId,
+            MinPrice = Filter.MinPrice,
+            MaxPrice = Filter.MaxPrice,
+            MinArea = Filter.MinArea,
+            MaxArea = Filter.MaxArea,
+            Rooms = Filter.Rooms,
+            HasBalcony = Filter.HasBalcony,
+            HasParking = Filter.HasParking,
+            HasElevator = Filter.HasElevator,
+            SortBy = Filter.SortBy,
+            SortDescending = Filter.SortDescending,
+            Page = page,
+            PageSize = 200
+        };
+    }
+
+    private async Task RenderMapAsync()
+    {
+        var mapItems = MapItems
+            .Select(item => new
+            {
+                id = item.Id,
+                latitude = item.Latitude,
+                longitude = item.Longitude,
+                address = item.Address,
+                url = BuildObjectUrl(item.Id),
+                price = item.Price.ToString("N0", CultureInfo.CurrentCulture) + " ₽",
+                details = $"{item.District} · {item.Rooms}-комн. · {item.Area} м²"
+            })
+            .ToList();
+
+        await JS.InvokeVoidAsync("catalogMap.render", "catalog-map-canvas", mapItems);
+    }
+
+    private async Task ToggleFavoriteAsync(int id)
     {
         try
         {
@@ -652,13 +945,43 @@ private async Task ToggleFavoriteAsync(int id)
                 favoriteIds.Remove(id);
             }
         }
-        catch (Exception ex)
+        catch
         {
             Notification = "Не удалось обновить избранное.";
             NotificationStyle = "error";
         }
 
         StateHasChanged();
+    }
+
+    private string BuildObjectUrl(int id) => $"/real-estate/{id}?returnUrl={Uri.EscapeDataString(BuildCatalogReturnUrl())}";
+
+    private string BuildCatalogReturnUrl()
+    {
+        var query = new Dictionary<string, string?>();
+        if (viewMode != "cards")
+        {
+            query["view"] = viewMode;
+        }
+
+        if (Filter.DistrictId is not null)
+        {
+            query["districtId"] = Filter.DistrictId.Value.ToString();
+        }
+
+        if (Filter.StreetId is not null)
+        {
+            query["streetId"] = Filter.StreetId.Value.ToString();
+        }
+
+        return query.Count == 0
+            ? "/search"
+            : Microsoft.AspNetCore.WebUtilities.QueryHelpers.AddQueryString("/search", query);
+    }
+
+    private static string NormalizeViewMode(string? mode)
+    {
+        return mode is "list" or "map" ? mode : "cards";
     }
 
     private decimal CalculateMonthlyPayment(decimal price)

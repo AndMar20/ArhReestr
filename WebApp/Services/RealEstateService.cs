@@ -1,4 +1,4 @@
-using DataLayer;
+﻿using DataLayer;
 using DataLayer.Models;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Hosting;
@@ -20,8 +20,11 @@ public class RealEstateService
     private readonly ILogger<RealEstateService> _logger;
     private readonly TimeProvider _timeProvider;
     private readonly IWebHostEnvironment _environment;
+    private readonly NotificationService _notificationService;
+    private readonly AuditLogService _auditLogService;
 
     private const long MaxPhotoSize = 5 * 1024 * 1024;
+    private const int MaxPhotoFileNameLength = 100;
     private static readonly string[] AllowedPhotoExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" };
 
     /// <summary>
@@ -31,12 +34,16 @@ public class RealEstateService
         IDbContextFactory<ArhReestrContext> contextFactory,
         ILogger<RealEstateService> logger,
         TimeProvider timeProvider,
-        IWebHostEnvironment environment)
+        IWebHostEnvironment environment,
+        NotificationService notificationService,
+        AuditLogService auditLogService)
     {
         _contextFactory = contextFactory;
         _logger = logger;
         _timeProvider = timeProvider;
         _environment = environment;
+        _notificationService = notificationService;
+        _auditLogService = auditLogService;
     }
 
     /// <summary>
@@ -57,10 +64,20 @@ public class RealEstateService
                 .AsNoTracking()
                 .Where(r => r.DeletedAt == null);
 
+            if (!filter.IncludeUnavailable)
+            {
+                query = query.Where(r => r.Status != null && r.Status.Code == "active");
+            }
+
             // Динамически накладываем условия фильтрации — провайдер EF Core превратит их в WHERE.
             if (filter.DistrictId is not null)
             {
                 query = query.Where(r => r.House != null && r.House.DistrictId == filter.DistrictId);
+            }
+
+            if (filter.StreetId is not null)
+            {
+                query = query.Where(r => r.House != null && r.House.StreetId == filter.StreetId);
             }
 
             if (filter.TypeId is not null)
@@ -122,7 +139,10 @@ public class RealEstateService
                 .ThenInclude(h => h.District)
                 .Include(r => r.House)
                 .ThenInclude(h => h.Street)
-                .Include(r => r.Photos.Where(p => p.DeletedAt == null));
+                .Include(r => r.Status)
+                .Include(r => r.Photos.Where(p => p.DeletedAt == null))
+                .Include(r => r.Interactions.Where(i => i.DeletedAt == null))
+                .ThenInclude(i => i.Status);
 
             // Применяем сортировку в зависимости от выбранного поля и направления.
             query = ApplySorting(query, filter);
@@ -172,13 +192,17 @@ public class RealEstateService
             var entities = await context.RealEstates
                 .AsNoTracking()
                 .Where(r => r.DeletedAt == null && idList.Contains(r.Id))
+                .Where(r => r.Status != null && r.Status.Code == "active")
                 .Include(r => r.Type)
                 .Include(r => r.Agent)
                 .Include(r => r.House)
                 .ThenInclude(h => h.District)
                 .Include(r => r.House)
                 .ThenInclude(h => h.Street)
+                .Include(r => r.Status)
                 .Include(r => r.Photos.Where(p => p.DeletedAt == null))
+                .Include(r => r.Interactions.Where(i => i.DeletedAt == null))
+                .ThenInclude(i => i.Status)
                 .ToListAsync(cancellationToken);
 
             return entities.Select(MapToSummary).ToList();
@@ -220,7 +244,10 @@ public class RealEstateService
                 .ThenInclude(h => h.District)
                 .Include(r => r.House)
                 .ThenInclude(h => h.Street)
+                .Include(r => r.Status)
                 .Include(r => r.Photos.Where(p => p.DeletedAt == null))
+                .Include(r => r.Interactions.Where(i => i.DeletedAt == null))
+                .ThenInclude(i => i.Status)
                 .OrderByDescending(r => r.CreatedAt)
                 .ToListAsync(cancellationToken);
 
@@ -319,22 +346,32 @@ public class RealEstateService
     /// <summary>
     /// Детально получает объект недвижимости по идентификатору вместе со связанными сущностями.
     /// </summary>
-    public async Task<RealEstate?> GetDetailsAsync(int id, CancellationToken cancellationToken = default)
+    public async Task<RealEstate?> GetDetailsAsync(int id, bool includeUnavailable = false, CancellationToken cancellationToken = default)
     {
         try
         {
             await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
 
-            return await context.RealEstates
+            IQueryable<RealEstate> query = context.RealEstates
                 .AsNoTracking()
+                .Where(r => r.DeletedAt == null)
                 .Include(r => r.Type)
                 .Include(r => r.Agent)
                 .Include(r => r.House)
                 .ThenInclude(h => h.District)
                 .Include(r => r.House)
                 .ThenInclude(h => h.Street)
+                .Include(r => r.Status)
                 .Include(r => r.Photos.Where(p => p.DeletedAt == null))
-                .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
+                .Include(r => r.Interactions.Where(i => i.DeletedAt == null))
+                .ThenInclude(i => i.Status);
+
+            if (!includeUnavailable)
+            {
+                query = query.Where(r => r.Status != null && r.Status.Code == "active");
+            }
+
+            return await query.FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
         }
         catch (DbException ex)
         {
@@ -434,6 +471,15 @@ public class RealEstateService
                 throw new InvalidOperationException("Тип недвижимости не найден");
             }
 
+            var statusId = model.StatusId is > 0
+                ? model.StatusId.Value
+                : await GetStatusIdByCodeAsync(context, "active", cancellationToken);
+            var statusExists = await context.RealEstateStatuses.AnyAsync(s => s.Id == statusId, cancellationToken);
+            if (!statusExists)
+            {
+                throw new InvalidOperationException("Статус объекта не найден");
+            }
+
             var districtExists = await context.Districts.AnyAsync(d => d.Id == model.DistrictId, cancellationToken);
             if (!districtExists)
             {
@@ -444,7 +490,7 @@ public class RealEstateService
 
             var normalizedNumber = model.HouseNumber.Trim();
             var house = await context.Houses
-                .FirstOrDefaultAsync(h => h.StreetId == streetId && h.Number == normalizedNumber, cancellationToken);
+                .FirstOrDefaultAsync(h => h.DistrictId == model.DistrictId && h.StreetId == streetId && h.Number == normalizedNumber, cancellationToken);
 
             if (house is null)
             {
@@ -484,6 +530,7 @@ public class RealEstateService
             {
                 AgentId = agentId,
                 TypeId = model.TypeId!.Value,
+                StatusId = statusId,
                 House = house,
                 Description = model.Description,
                 Price = model.Price,
@@ -496,6 +543,9 @@ public class RealEstateService
 
             context.RealEstates.Add(entity);
             await context.SaveChangesAsync(cancellationToken);
+
+            await _auditLogService.WriteAsync("RealEstate", "create", entity.Id, agentId, null, $"Создан объект #{entity.Id}", cancellationToken);
+            await _notificationService.CreateAsync(agentId, "Объект создан", $"Объект #{entity.Id} сохранён со статусом \"Активен\".", cancellationToken);
 
             return entity.Id;
         }
@@ -530,6 +580,7 @@ public class RealEstateService
 
             var entity = await context.RealEstates
                 .Include(r => r.House)
+                .Include(r => r.Status)
                 .FirstOrDefaultAsync(r => r.Id == model.Id && r.DeletedAt == null, cancellationToken);
 
             if (entity is null)
@@ -542,10 +593,23 @@ public class RealEstateService
                 throw new InvalidOperationException("Недостаточно прав для изменения объекта");
             }
 
+            var isSold = entity.Status?.Code == "sold";
+            if (isSold && !isAdmin)
+            {
+                throw new InvalidOperationException("Проданный объект нельзя редактировать риелтору.");
+            }
+
             var typeExists = await context.RealEstateTypes.AnyAsync(t => t.Id == model.TypeId, cancellationToken);
             if (!typeExists)
             {
                 throw new InvalidOperationException("Тип недвижимости не найден");
+            }
+
+            var requestedStatusId = model.StatusId is > 0 ? model.StatusId.Value : entity.StatusId;
+            var requestedStatus = await context.RealEstateStatuses.FirstOrDefaultAsync(s => s.Id == requestedStatusId, cancellationToken);
+            if (requestedStatus is null)
+            {
+                throw new InvalidOperationException("Статус объекта не найден");
             }
 
             var districtExists = await context.Districts.AnyAsync(d => d.Id == model.DistrictId, cancellationToken);
@@ -558,7 +622,7 @@ public class RealEstateService
 
             var normalizedNumber = model.HouseNumber.Trim();
             var house = await context.Houses
-                .FirstOrDefaultAsync(h => h.StreetId == streetId && h.Number == normalizedNumber, cancellationToken);
+                .FirstOrDefaultAsync(h => h.DistrictId == model.DistrictId && h.StreetId == streetId && h.Number == normalizedNumber, cancellationToken);
 
             if (house is null)
             {
@@ -585,7 +649,11 @@ public class RealEstateService
                 throw new InvalidOperationException("Этаж не может превышать количество этажей в доме");
             }
 
+            var oldStatus = entity.Status?.Name ?? string.Empty;
+            var oldStatusId = entity.StatusId;
+
             entity.TypeId = model.TypeId!.Value;
+            entity.StatusId = requestedStatusId;
             entity.House = house;
             entity.Description = model.Description;
             entity.Price = model.Price;
@@ -608,6 +676,20 @@ public class RealEstateService
             }
 
             await context.SaveChangesAsync(cancellationToken);
+
+            await _auditLogService.WriteAsync(
+                "RealEstate",
+                "update",
+                entity.Id,
+                requesterId,
+                oldStatusId == requestedStatusId ? null : oldStatus,
+                oldStatusId == requestedStatusId ? $"Обновлён объект #{entity.Id}" : requestedStatus.Name,
+                cancellationToken);
+
+            if (oldStatusId != requestedStatusId)
+            {
+                await _notificationService.CreateAsync(entity.AgentId, "Статус объекта изменён", $"Объект #{entity.Id}: {oldStatus} → {requestedStatus.Name}.", cancellationToken);
+            }
         }
         catch (DbException ex)
         {
@@ -700,7 +782,7 @@ public class RealEstateService
             var photo = new RealEstatePhoto
             {
                 RealEstateId = entity.Id,
-                FileName = Path.GetFileName(file.Name),
+                FileName = NormalizePhotoFileName(file.Name),
                 FilePath = relativePath,
                 IsPrimary = !hasPrimary && savedPhotos.Count == 0,
                 DeletedAt = null
@@ -713,6 +795,141 @@ public class RealEstateService
         await context.SaveChangesAsync(cancellationToken);
 
         return savedPhotos;
+    }
+
+    public async Task<bool> IsUnavailableAsync(int realEstateId, CancellationToken cancellationToken = default)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+
+        return await context.RealEstates
+            .AsNoTracking()
+            .AnyAsync(r => r.Id == realEstateId
+                && r.DeletedAt == null
+                && r.Status != null
+                && r.Status.Code != "active", cancellationToken);
+    }
+
+    private static IQueryable<RealEstate> ExcludeCompletedDeals(IQueryable<RealEstate> query)
+    {
+        return query.Where(r => !r.Interactions.Any(i =>
+            i.DeletedAt == null
+            && i.Status != null
+            && i.Status.Name.Contains("заверш")));
+    }
+
+    private static async Task<int> GetStatusIdByCodeAsync(ArhReestrContext context, string code, CancellationToken cancellationToken)
+    {
+        var statusId = await context.RealEstateStatuses
+            .Where(s => s.Code == code)
+            .Select(s => (int?)s.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return statusId ?? throw new InvalidOperationException("Не найден базовый статус объекта.");
+    }
+
+    public async Task DeletePhotoAsync(int photoId, int requesterId, bool isAdmin, CancellationToken cancellationToken = default)
+    {
+        if (requesterId <= 0)
+        {
+            throw new InvalidOperationException("Не удалось определить пользователя");
+        }
+
+        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+
+        var photo = await context.RealEstatePhotos
+            .Include(p => p.RealEstate)
+            .FirstOrDefaultAsync(p => p.Id == photoId && p.DeletedAt == null, cancellationToken);
+
+        if (photo?.RealEstate is null || photo.RealEstate.DeletedAt != null)
+        {
+            throw new InvalidOperationException("Фото не найдено");
+        }
+
+        if (!isAdmin && photo.RealEstate.AgentId != requesterId)
+        {
+            throw new InvalidOperationException("Недостаточно прав для удаления фото");
+        }
+
+        var now = _timeProvider.GetUtcNow().UtcDateTime;
+        var wasPrimary = photo.IsPrimary;
+        photo.DeletedAt = now;
+        photo.IsPrimary = false;
+
+        if (wasPrimary)
+        {
+            var nextPrimary = await context.RealEstatePhotos
+                .Where(p => p.RealEstateId == photo.RealEstateId && p.Id != photo.Id && p.DeletedAt == null)
+                .OrderBy(p => p.Id)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (nextPrimary is not null)
+            {
+                nextPrimary.IsPrimary = true;
+            }
+        }
+
+        await context.SaveChangesAsync(cancellationToken);
+
+        await _auditLogService.WriteAsync(
+            "RealEstatePhoto",
+            "delete",
+            photo.Id,
+            requesterId,
+            null,
+            $"Удалено фото объекта #{photo.RealEstateId}",
+            cancellationToken);
+    }
+
+    public async Task DeleteAsync(int realEstateId, int requesterId, bool isAdmin, CancellationToken cancellationToken = default)
+    {
+        if (requesterId <= 0)
+        {
+            throw new InvalidOperationException("Не удалось определить пользователя");
+        }
+
+        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+
+        var entity = await context.RealEstates
+            .Include(r => r.Photos)
+            .FirstOrDefaultAsync(r => r.Id == realEstateId && r.DeletedAt == null, cancellationToken);
+
+        if (entity is null)
+        {
+            throw new InvalidOperationException("Объект недвижимости не найден");
+        }
+
+        if (!isAdmin && entity.AgentId != requesterId)
+        {
+            throw new InvalidOperationException("Недостаточно прав для удаления объекта");
+        }
+
+        var now = _timeProvider.GetUtcNow().UtcDateTime;
+        entity.DeletedAt = now;
+
+        foreach (var photo in entity.Photos.Where(p => p.DeletedAt == null))
+        {
+            photo.DeletedAt = now;
+            photo.IsPrimary = false;
+        }
+
+        await context.SaveChangesAsync(cancellationToken);
+
+        await _auditLogService.WriteAsync(
+            "RealEstate",
+            "delete",
+            entity.Id,
+            requesterId,
+            null,
+            $"Удалён объект #{entity.Id}",
+            cancellationToken);
+    }
+
+    private static string NormalizePhotoFileName(string fileName)
+    {
+        var normalized = Path.GetFileName(fileName);
+        return normalized.Length <= MaxPhotoFileNameLength
+            ? normalized
+            : normalized[..MaxPhotoFileNameLength];
     }
 
     /// <summary>
@@ -738,11 +955,14 @@ public class RealEstateService
     private static RealEstateSummary MapToSummary(RealEstate r)
     {
         var activePhotos = r.Photos.Where(p => p.DeletedAt == null).ToList();
+        var isSold = string.Equals(r.Status?.Code, "sold", StringComparison.OrdinalIgnoreCase);
             return new RealEstateSummary(
                 r.Id,
                 AddressFormatter.Format(r.House),
             r.House?.District?.Name ?? string.Empty,
             r.Type?.Name ?? string.Empty,
+            r.Status?.Name ?? string.Empty,
+            r.StatusId,
             r.Price,
             r.Rooms,
             r.Area,
@@ -755,7 +975,8 @@ public class RealEstateService
             r.House?.HasElevator ?? false,
             activePhotos.FirstOrDefault(p => p.IsPrimary)?.FilePath ?? activePhotos.FirstOrDefault()?.FilePath,
             r.House?.Latitude,
-            r.House?.Longitude);
+            r.House?.Longitude,
+            isSold);
     }
 
     /// <summary>
@@ -831,3 +1052,4 @@ public class RealEstateService
         return existing.Id;
     }
 }
+

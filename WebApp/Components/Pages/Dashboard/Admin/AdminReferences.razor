@@ -1,0 +1,196 @@
+@page "/admin/references"
+@attribute [Authorize(Policy = "RequireAdmin")]
+@using global::System.Security.Claims
+@using DataLayer
+@inject AdminReferenceService ReferenceService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>Справочники</PageTitle>
+
+<section class="hero-card admin-hero">
+    <div class="section-header">
+        <div>
+            <h1 class="section-title">Справочники</h1>
+            <p class="section-sub">Удаляйте лишние районы и улицы, которые не используются в карточках объектов.</p>
+        </div>
+    </div>
+    <AdminNav />
+</section>
+
+@if (!string.IsNullOrWhiteSpace(Notification))
+{
+    <div class="alert @NotificationStyle">@Notification</div>
+}
+
+<div class="panel">
+    <div class="section-header">
+        <div>
+            <h2>Районы и улицы</h2>
+            <p class="small-text">Удаление доступно только для записей без привязанных активных объектов.</p>
+        </div>
+    </div>
+
+    <div class="admin-filter-bar references-filter-bar">
+        <label>Поиск
+            <input @bind="Search" @bind:event="oninput" placeholder="Название района или улицы" />
+        </label>
+        <button type="button" class="ghost filter-reset-button" @onclick="ResetSearch">Сбросить</button>
+    </div>
+
+    @if (IsLoading)
+    {
+        <p>Загрузка...</p>
+    }
+    else
+    {
+        <div class="grid reference-grid">
+            <section class="reference-panel">
+                <div class="section-header compact">
+                    <h3>Районы</h3>
+                    <span class="small-text">@FilteredDistricts.Count() записей</span>
+                </div>
+                <div class="reference-list">
+                    @foreach (var district in FilteredDistricts)
+                    {
+                        <div class="reference-row">
+                            <div>
+                                <a class="cell-primary" href="@BuildDistrictUrl(district.Id)">@district.Name</a>
+                                <div class="cell-note">Объектов: @district.HouseCount</div>
+                            </div>
+                            <button type="button"
+                                    class="danger"
+                                    disabled="@(district.HouseCount > 0 || IsBusy)"
+                                    title="@(district.HouseCount > 0 ? "Сначала удалите или перенесите связанные объекты" : "Удалить район")"
+                                    @onclick="() => DeleteDistrictAsync(district.Id)">
+                                Удалить
+                            </button>
+                        </div>
+                    }
+                </div>
+            </section>
+
+            <section class="reference-panel">
+                <div class="section-header compact">
+                    <h3>Улицы</h3>
+                    <span class="small-text">@FilteredStreets.Count() записей</span>
+                </div>
+                <div class="reference-list">
+                    @foreach (var street in FilteredStreets)
+                    {
+                        <div class="reference-row">
+                            <div>
+                                <a class="cell-primary" href="@BuildStreetUrl(street.Id)">@street.Name</a>
+                                <div class="cell-note">Объектов: @street.HouseCount</div>
+                            </div>
+                            <button type="button"
+                                    class="danger"
+                                    disabled="@(street.HouseCount > 0 || IsBusy)"
+                                    title="@(street.HouseCount > 0 ? "Сначала удалите или перенесите связанные объекты" : "Удалить улицу")"
+                                    @onclick="() => DeleteStreetAsync(street.Id)">
+                                Удалить
+                            </button>
+                        </div>
+                    }
+                </div>
+            </section>
+        </div>
+    }
+</div>
+
+@code {
+    private List<ReferenceItem> Districts { get; set; } = new();
+    private List<ReferenceItem> Streets { get; set; } = new();
+    private bool IsLoading { get; set; } = true;
+    private bool IsBusy { get; set; }
+    private string Search { get; set; } = string.Empty;
+    private string? Notification;
+    private string NotificationStyle = "info";
+    private int CurrentUserId { get; set; }
+
+    private IEnumerable<ReferenceItem> FilteredDistricts => FilterReferences(Districts);
+    private IEnumerable<ReferenceItem> FilteredStreets => FilterReferences(Streets);
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var idValue = state.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (int.TryParse(idValue, out var parsedId))
+        {
+            CurrentUserId = parsedId;
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            IsLoading = true;
+            Districts = (await ReferenceService.GetDistrictsAsync()).ToList();
+            Streets = (await ReferenceService.GetStreetsAsync()).ToList();
+        }
+        catch (Exception ex)
+        {
+            Notification = DatabaseErrorMessages.Resolve(ex);
+            NotificationStyle = "error";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private IEnumerable<ReferenceItem> FilterReferences(IEnumerable<ReferenceItem> source)
+    {
+        if (string.IsNullOrWhiteSpace(Search))
+        {
+            return source;
+        }
+
+        var term = Search.Trim();
+        return source.Where(item => item.Name.Contains(term, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private void ResetSearch() => Search = string.Empty;
+
+    private static string BuildDistrictUrl(int districtId) => $"/search?districtId={districtId}";
+
+    private static string BuildStreetUrl(int streetId) => $"/search?streetId={streetId}";
+
+    private async Task DeleteDistrictAsync(int districtId)
+    {
+        await DeleteAsync(() => ReferenceService.DeleteDistrictAsync(districtId, CurrentUserId), "Район удалён.");
+    }
+
+    private async Task DeleteStreetAsync(int streetId)
+    {
+        await DeleteAsync(() => ReferenceService.DeleteStreetAsync(streetId, CurrentUserId), "Улица удалена.");
+    }
+
+    private async Task DeleteAsync(Func<Task> action, string successMessage)
+    {
+        try
+        {
+            IsBusy = true;
+            await action();
+            Notification = successMessage;
+            NotificationStyle = "success";
+            await LoadAsync();
+        }
+        catch (InvalidOperationException ex)
+        {
+            Notification = ex.Message;
+            NotificationStyle = "error";
+        }
+        catch (Exception ex)
+        {
+            Notification = DatabaseErrorMessages.Resolve(ex);
+            NotificationStyle = "error";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+}

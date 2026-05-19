@@ -42,6 +42,8 @@ public class ArhReestrContext : DbContext
     /// </summary>
     public virtual DbSet<RealEstateType> RealEstateTypes => Set<RealEstateType>();
 
+    public virtual DbSet<RealEstateStatus> RealEstateStatuses => Set<RealEstateStatus>();
+
     /// <summary>
     /// Роли пользователей.
     /// </summary>
@@ -65,6 +67,8 @@ public class ArhReestrContext : DbContext
     public virtual DbSet<Notification> Notifications => Set<Notification>();
     public virtual DbSet<ViewingSlot> ViewingSlots => Set<ViewingSlot>();
     public virtual DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
+    public virtual DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public virtual DbSet<Deal> Deals => Set<Deal>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -74,6 +78,7 @@ public class ArhReestrContext : DbContext
             entity.ToTable("Districts");
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(50);
+            entity.HasIndex(e => e.Name).IsUnique().HasDatabaseName("uk_district_name");
         });
 
         modelBuilder.Entity<InteractionStatus>(entity =>
@@ -96,6 +101,7 @@ public class ArhReestrContext : DbContext
             entity.ToTable("Streets");
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(100);
+            entity.HasIndex(e => e.Name).IsUnique().HasDatabaseName("uk_street_name");
         });
 
         modelBuilder.Entity<House>(entity =>
@@ -111,6 +117,8 @@ public class ArhReestrContext : DbContext
             entity.Property(e => e.BuildingYear).HasColumnName("buildingYear");
             entity.Property(e => e.Latitude).HasColumnName("latitude").HasColumnType("decimal(10,7)");
             entity.Property(e => e.Longitude).HasColumnName("longitude").HasColumnType("decimal(10,7)");
+            entity.HasIndex(e => new { e.DistrictId, e.StreetId, e.Number }).IsUnique().HasDatabaseName("uk_house_address");
+            entity.HasIndex(e => new { e.StreetId, e.Number }).HasDatabaseName("idx_house_street_number");
 
             entity.HasOne(d => d.Street)
                 .WithMany(p => p.Houses)
@@ -164,6 +172,7 @@ public class ArhReestrContext : DbContext
             entity.Property(e => e.UserId).HasColumnName("userId");
             entity.Property(e => e.Title).HasColumnName("title").HasMaxLength(120);
             entity.Property(e => e.Message).HasColumnName("message").HasMaxLength(1000);
+            entity.Property(e => e.LinkUrl).HasColumnName("linkUrl").HasMaxLength(500);
             entity.Property(e => e.IsRead).HasColumnName("isRead");
             entity.Property(e => e.CreatedAt).HasColumnName("createdAt");
             entity.HasIndex(e => new { e.UserId, e.CreatedAt }).HasDatabaseName("idx_notifications_user_time");
@@ -211,6 +220,15 @@ public class ArhReestrContext : DbContext
             entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(30);
         });
 
+        modelBuilder.Entity<RealEstateStatus>(entity =>
+        {
+            entity.ToTable("RealEstateStatuses");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(30);
+            entity.Property(e => e.Code).HasColumnName("code").HasMaxLength(30);
+            entity.HasIndex(e => e.Code).IsUnique().HasDatabaseName("uk_real_estate_status_code");
+        });
+
         modelBuilder.Entity<RealEstate>(entity =>
         {
             entity.ToTable("RealEstate");
@@ -218,6 +236,7 @@ public class ArhReestrContext : DbContext
             entity.Property(e => e.AgentId).HasColumnName("agentId");
             entity.Property(e => e.TypeId).HasColumnName("typeId");
             entity.Property(e => e.HouseId).HasColumnName("houseId");
+            entity.Property(e => e.StatusId).HasColumnName("statusId");
             entity.Property(e => e.Description).HasColumnName("description");
             entity.Property(e => e.Price).HasColumnName("price").HasColumnType("decimal(12,2)");
             entity.Property(e => e.Rooms).HasColumnName("rooms");
@@ -228,6 +247,7 @@ public class ArhReestrContext : DbContext
             entity.Property(e => e.DeletedAt).HasColumnName("deletedAt");
             entity.HasIndex(e => new { e.DeletedAt, e.CreatedAt }).HasDatabaseName("idx_real_estate_deleted_created");
             entity.HasIndex(e => new { e.HouseId, e.DeletedAt }).HasDatabaseName("idx_real_estate_house_deleted");
+            entity.HasIndex(e => new { e.StatusId, e.DeletedAt }).HasDatabaseName("idx_real_estate_status_deleted");
 
             entity.HasOne(d => d.Agent)
                 .WithMany(p => p.RealEstates)
@@ -243,6 +263,68 @@ public class ArhReestrContext : DbContext
                 .WithMany(p => p.RealEstates)
                 .HasForeignKey(d => d.HouseId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(d => d.Status)
+                .WithMany(p => p.RealEstates)
+                .HasForeignKey(d => d.StatusId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<AuditLog>(entity =>
+        {
+            entity.ToTable("AuditLogs");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.ActorUserId).HasColumnName("actorUserId");
+            entity.Property(e => e.EntityType).HasColumnName("entityType").HasMaxLength(50);
+            entity.Property(e => e.EntityId).HasColumnName("entityId");
+            entity.Property(e => e.Action).HasColumnName("action").HasMaxLength(80);
+            entity.Property(e => e.OldValue).HasColumnName("oldValue");
+            entity.Property(e => e.NewValue).HasColumnName("newValue");
+            entity.Property(e => e.CreatedAt).HasColumnName("createdAt");
+            entity.HasIndex(e => new { e.EntityType, e.EntityId, e.CreatedAt }).HasDatabaseName("idx_audit_entity_time");
+            entity.HasIndex(e => new { e.ActorUserId, e.CreatedAt }).HasDatabaseName("idx_audit_actor_time");
+
+            entity.HasOne(d => d.ActorUser)
+                .WithMany()
+                .HasForeignKey(d => d.ActorUserId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<Deal>(entity =>
+        {
+            entity.ToTable("Deals");
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.InteractionId).HasColumnName("interactionId");
+            entity.Property(e => e.RealEstateId).HasColumnName("realEstateId");
+            entity.Property(e => e.AgentId).HasColumnName("agentId");
+            entity.Property(e => e.ClientId).HasColumnName("clientId");
+            entity.Property(e => e.Amount).HasColumnName("amount").HasColumnType("decimal(12,2)");
+            entity.Property(e => e.Commission).HasColumnName("commission").HasColumnType("decimal(12,2)");
+            entity.Property(e => e.ClosedAt).HasColumnName("closedAt");
+            entity.Property(e => e.CreatedAt).HasColumnName("createdAt");
+            entity.HasIndex(e => e.InteractionId).IsUnique().HasDatabaseName("uk_deal_interaction");
+            entity.HasIndex(e => new { e.AgentId, e.ClosedAt }).HasDatabaseName("idx_deal_agent_closed");
+            entity.HasIndex(e => e.ClosedAt).HasDatabaseName("idx_deal_closed");
+
+            entity.HasOne(d => d.Interaction)
+                .WithMany()
+                .HasForeignKey(d => d.InteractionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(d => d.RealEstate)
+                .WithMany()
+                .HasForeignKey(d => d.RealEstateId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(d => d.Agent)
+                .WithMany()
+                .HasForeignKey(d => d.AgentId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(d => d.Client)
+                .WithMany()
+                .HasForeignKey(d => d.ClientId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<RealEstatePhoto>(entity =>

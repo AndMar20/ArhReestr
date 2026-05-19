@@ -76,6 +76,28 @@ public class LookupService
             return Array.Empty<DataLayer.Models.Role>();
         }
     }
+
+    public async Task<IReadOnlyList<DataLayer.Models.RealEstateStatus>> GetRealEstateStatusesAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await _context.RealEstateStatuses
+                .AsNoTracking()
+                .OrderBy(s => s.Id)
+                .ToListAsync(cancellationToken);
+        }
+        catch (DbException ex)
+        {
+            var message = DatabaseErrorMessages.Resolve(ex);
+            _logger.LogError(ex, message);
+            throw new InvalidOperationException(message, ex);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Не удалось загрузить статусы объектов");
+            return Array.Empty<DataLayer.Models.RealEstateStatus>();
+        }
+    }
     /// <summary>
     /// Возвращает роль по системному имени. Бросает InvalidOperationException с понятным текстом при ошибке подключения.
     /// </summary>

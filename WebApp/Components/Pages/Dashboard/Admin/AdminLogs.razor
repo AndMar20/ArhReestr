@@ -1,0 +1,344 @@
+@page "/admin/logs"
+@attribute [Authorize(Policy = "RequireAdmin")]
+@implements IAsyncDisposable
+@using DataLayer
+@using DataLayer.Models
+@inject AuditLogService AuditLogService
+
+<PageTitle>Логи</PageTitle>
+
+<section class="hero-card admin-hero">
+    <div class="section-header">
+        <div>
+            <h1 class="section-title">История действий</h1>
+            <p class="section-sub">Отслеживайте важные операции по объектам, заявкам, статусам, фото и пользователям.</p>
+        </div>
+    </div>
+    <AdminNav />
+</section>
+
+@if (!string.IsNullOrWhiteSpace(Notification))
+{
+    <div class="alert @NotificationStyle">@Notification</div>
+}
+
+<div class="panel">
+    <div class="section-header">
+        <div>
+            <h2>Логи системы</h2>
+            <p class="small-text">@Logs.Count записей · автообновление включено</p>
+        </div>
+    </div>
+
+    <div class="admin-filter-bar logs-filter-bar">
+        <label>Поиск
+            <input value="@Search" @oninput="OnSearchInputAsync" placeholder="Пользователь, раздел, действие" />
+        </label>
+        <button type="button" class="ghost filter-reset-button" @onclick="ResetFiltersAsync">Сбросить</button>
+        <button type="button" class="ghost filter-reset-button" @onclick="ToggleEntityFilters">
+            @(AreEntityFiltersCollapsed ? "Показать разделы" : "Скрыть разделы")
+        </button>
+    </div>
+
+    @if (AreEntityFiltersCollapsed)
+    {
+        <div class="entity-filter-summary">
+            <strong>Разделы журнала</strong>
+            <span>@SelectedEntityCount из @EntityFilters.Count выбрано</span>
+        </div>
+    }
+    else
+    {
+        <div class="entity-filter-grid" aria-label="Разделы журнала">
+            @foreach (var filter in EntityFilters)
+            {
+                <label class="entity-filter-card">
+                    <input type="checkbox" checked="@filter.IsSelected" @onchange="args => ToggleEntityAsync(filter, args)" />
+                    <span>
+                        <strong>@filter.Title</strong>
+                        <small>@filter.Description</small>
+                    </span>
+                </label>
+            }
+        </div>
+    }
+
+    @if (IsLoading)
+    {
+        <p>Загрузка...</p>
+    }
+    else if (Logs.Count == 0)
+    {
+        <p class="muted">Записей пока нет.</p>
+    }
+    else
+    {
+        <div class="table-wrapper">
+            <table class="data-table stacked-table">
+                <thead>
+                    <tr>
+                        <th>Дата</th>
+                        <th>Пользователь</th>
+                        <th>Раздел</th>
+                        <th>Действие</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var log in Logs)
+                    {
+                        var isExpanded = expandedLogId == log.Id;
+                        <tr class="log-row @(isExpanded ? "active" : string.Empty)" @onclick="() => ToggleLogDetails(log.Id)">
+                            <td data-label="Дата">@DateTimeDisplay.Format(log.CreatedAt)</td>
+                            <td data-label="Пользователь">@GetActorName(log)</td>
+                            <td data-label="Раздел">
+                                <span class="badge">@GetEntityTitle(log.EntityType)</span>
+                                @if (log.EntityId is not null)
+                                {
+                                    <span class="cell-note">#@log.EntityId</span>
+                                }
+                            </td>
+                            <td data-label="Действие">@GetActionTitle(log.Action, log.EntityType)</td>
+                        </tr>
+                        @if (isExpanded)
+                        {
+                            <tr class="log-details-row">
+                                <td colspan="4">
+                                    <div class="log-details">
+                                        <div>
+                                            <span class="cell-note">Когда</span>
+                                            <strong>@DateTimeDisplay.Format(log.CreatedAt)</strong>
+                                        </div>
+                                        <div>
+                                            <span class="cell-note">Кто выполнил</span>
+                                            <strong>@GetActorName(log)</strong>
+                                        </div>
+                                        <div>
+                                            <span class="cell-note">Раздел журнала</span>
+                                            <strong>@GetEntityTitle(log.EntityType)@(log.EntityId is null ? "" : $" #{log.EntityId}")</strong>
+                                        </div>
+                                        <div>
+                                            <span class="cell-note">Действие</span>
+                                            <strong>@GetActionTitle(log.Action, log.EntityType)</strong>
+                                        </div>
+                                        @if (!string.IsNullOrWhiteSpace(log.OldValue))
+                                        {
+                                            <div class="log-details-wide">
+                                                <span class="cell-note">Было</span>
+                                                <pre>@log.OldValue</pre>
+                                            </div>
+                                        }
+                                        @if (!string.IsNullOrWhiteSpace(log.NewValue))
+                                        {
+                                            <div class="log-details-wide">
+                                                <span class="cell-note">Стало</span>
+                                                <pre>@log.NewValue</pre>
+                                            </div>
+                                        }
+                                        @if (GetEntityLink(log) is { } entityLink)
+                                        {
+                                            <div class="log-details-wide">
+                                                <a class="ghost compact-link" href="@entityLink" @onclick:stopPropagation>Открыть связанный раздел</a>
+                                            </div>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    private readonly List<LogEntityFilter> EntityFilters =
+    [
+        new("RealEstate", "Объекты", "Создание, изменение, удаление"),
+        new("Interaction", "Заявки", "Обращения и сделки"),
+        new("RealEstatePhoto", "Фото", "Добавление и удаление фото"),
+        new("User", "Пользователи", "Аккаунты и роли"),
+        new("District", "Районы", "Справочник районов"),
+        new("Street", "Улицы", "Справочник улиц")
+    ];
+
+    private List<AuditLog> Logs { get; set; } = new();
+    private bool IsLoading { get; set; } = true;
+    private string Search { get; set; } = string.Empty;
+    private string? Notification;
+    private string NotificationStyle = "info";
+    private bool AreEntityFiltersCollapsed { get; set; } = true;
+    private int? expandedLogId;
+    private PeriodicTimer? RefreshTimer;
+    private CancellationTokenSource? RefreshCancellation;
+    private int SelectedEntityCount => EntityFilters.Count(filter => filter.IsSelected);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync(showLoading: true);
+        StartAutoRefresh();
+    }
+
+    private void StartAutoRefresh()
+    {
+        RefreshCancellation = new CancellationTokenSource();
+        RefreshTimer = new PeriodicTimer(TimeSpan.FromSeconds(7));
+        _ = RunAutoRefreshAsync(RefreshCancellation.Token);
+    }
+
+    private async Task RunAutoRefreshAsync(CancellationToken token)
+    {
+        if (RefreshTimer is null)
+        {
+            return;
+        }
+
+        try
+        {
+            while (await RefreshTimer.WaitForNextTickAsync(token))
+            {
+                await InvokeAsync(() => LoadAsync(showLoading: false));
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private async Task LoadAsync(bool showLoading = true)
+    {
+        try
+        {
+            if (showLoading)
+            {
+                IsLoading = true;
+            }
+
+            var selectedTypes = EntityFilters
+                .Where(filter => filter.IsSelected)
+                .Select(filter => filter.EntityType)
+                .ToArray();
+
+            Logs = (await AuditLogService.GetRecentAsync(Search, selectedTypes)).ToList();
+            Notification = null;
+        }
+        catch (Exception ex)
+        {
+            Notification = DatabaseErrorMessages.Resolve(ex);
+            NotificationStyle = "error";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async Task OnSearchInputAsync(ChangeEventArgs args)
+    {
+        Search = args.Value?.ToString() ?? string.Empty;
+        await LoadAsync(showLoading: false);
+    }
+
+    private async Task ToggleEntityAsync(LogEntityFilter filter, ChangeEventArgs args)
+    {
+        filter.IsSelected = args.Value is bool value && value;
+        await LoadAsync(showLoading: false);
+    }
+
+    private async Task ResetFiltersAsync()
+    {
+        Search = string.Empty;
+        foreach (var filter in EntityFilters)
+        {
+            filter.IsSelected = true;
+        }
+
+        await LoadAsync();
+    }
+
+    private void ToggleEntityFilters()
+    {
+        AreEntityFiltersCollapsed = !AreEntityFiltersCollapsed;
+    }
+
+    private void ToggleLogDetails(int logId)
+    {
+        expandedLogId = expandedLogId == logId ? null : logId;
+    }
+
+    private static string GetActorName(AuditLog log)
+    {
+        return log.ActorUser is null
+            ? "Система"
+            : FullNameFormatter.Combine(log.ActorUser.LastName, log.ActorUser.FirstName, log.ActorUser.MiddleName);
+    }
+
+    private static string? GetEntityLink(AuditLog log) => log.EntityType switch
+    {
+        "RealEstate" when log.EntityId is not null => $"/real-estate/{log.EntityId}",
+        "Interaction" => "/admin/requests",
+        "RealEstatePhoto" => "/admin/objects",
+        "User" => "/admin/users",
+        "District" or "Street" => "/admin/references",
+        _ => null
+    };
+
+    private static string GetEntityTitle(string entityType) => entityType switch
+    {
+        "RealEstate" => "Объект",
+        "Interaction" => "Заявка",
+        "RealEstatePhoto" => "Фото",
+        "User" => "Пользователь",
+        "District" => "Район",
+        "Street" => "Улица",
+        _ => entityType
+    };
+
+    private static string GetActionTitle(string action, string entityType) => (entityType, action) switch
+    {
+        ("RealEstate", "create") => "Добавлен объект",
+        ("RealEstate", "update") => "Изменён объект",
+        ("RealEstate", "delete") => "Удалён объект",
+        ("RealEstate", "status-change") => "Изменён статус объекта",
+        ("Interaction", "create") => "Создана заявка",
+        ("Interaction", "update") => "Изменена заявка",
+        ("Interaction", "delete") => "Удалена заявка",
+        ("Interaction", "status-change") => "Изменён статус заявки",
+        ("RealEstatePhoto", "create") => "Добавлено фото",
+        ("RealEstatePhoto", "update") => "Изменено фото",
+        ("RealEstatePhoto", "delete") => "Удалено фото",
+        ("User", "create") => "Добавлен пользователь",
+        ("User", "update") => "Изменён пользователь",
+        ("User", "delete") => "Удалён пользователь",
+        ("District", "delete") => "Удалён район",
+        ("Street", "delete") => "Удалена улица",
+        (_, "create") => "Создание",
+        (_, "update") => "Изменение",
+        (_, "delete") => "Удаление",
+        (_, "status-change") => "Изменение статуса",
+        _ => action
+    };
+
+    public async ValueTask DisposeAsync()
+    {
+        RefreshCancellation?.Cancel();
+        RefreshTimer?.Dispose();
+        RefreshCancellation?.Dispose();
+        await Task.CompletedTask;
+    }
+
+    private sealed class LogEntityFilter
+    {
+        public LogEntityFilter(string entityType, string title, string description)
+        {
+            EntityType = entityType;
+            Title = title;
+            Description = description;
+        }
+
+        public string EntityType { get; }
+        public string Title { get; }
+        public string Description { get; }
+        public bool IsSelected { get; set; } = true;
+    }
+}

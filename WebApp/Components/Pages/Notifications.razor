@@ -1,0 +1,118 @@
+@page "/notifications"
+@attribute [Authorize]
+@using DataLayer.Models
+@using global::System.Security.Claims
+@inject NotificationService NotificationService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
+
+<PageTitle>Уведомления</PageTitle>
+
+<section class="hero-card">
+    <div class="section-header">
+        <div>
+            <h1 class="section-title">Уведомления</h1>
+            <p class="section-sub">Новые заявки, сообщения и изменения по объектам.</p>
+        </div>
+        @if (Items.Any(n => !n.IsRead))
+        {
+            <button type="button" class="ghost" @onclick="MarkAllReadAsync">Отметить прочитанными</button>
+        }
+    </div>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(Notification))
+{
+    <div class="alert @NotificationStyle">@Notification</div>
+}
+
+<div class="panel">
+    <div class="section-header">
+        <h2>Последние события</h2>
+        <span class="small-text">@Items.Count записей</span>
+    </div>
+
+    @if (IsLoading)
+    {
+        <p>Загрузка...</p>
+    }
+    else if (Items.Count == 0)
+    {
+        <p class="muted">Уведомлений пока нет.</p>
+    }
+    else
+    {
+        <div class="notification-list">
+            @foreach (var item in Items)
+            {
+                @if (!string.IsNullOrWhiteSpace(item.LinkUrl))
+                {
+                    <button type="button" class="notification-item notification-link @(item.IsRead ? string.Empty : "unread")" @onclick="() => OpenNotificationAsync(item)">
+                        <span>
+                            <strong>@item.Title</strong>
+                            <span>@item.Message</span>
+                            <small>Открыть</small>
+                        </span>
+                        <span class="small-text">@DateTimeDisplay.Format(item.CreatedAt)</span>
+                    </button>
+                }
+                else
+                {
+                    <article class="notification-item @(item.IsRead ? string.Empty : "unread")">
+                        <div>
+                            <h3>@item.Title</h3>
+                            <p>@item.Message</p>
+                        </div>
+                        <span class="small-text">@DateTimeDisplay.Format(item.CreatedAt)</span>
+                    </article>
+                }
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private List<Notification> Items { get; set; } = new();
+    private bool IsLoading { get; set; } = true;
+    private string? Notification;
+    private string NotificationStyle = "info";
+    private int userId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthStateProvider.GetAuthenticationStateAsync();
+        var idValue = state.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        userId = int.TryParse(idValue, out var parsed) ? parsed : 0;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            IsLoading = true;
+            Items = (await NotificationService.GetForUserAsync(userId)).ToList();
+        }
+        catch (Exception ex)
+        {
+            Notification = DatabaseErrorMessages.Resolve(ex);
+            NotificationStyle = "error";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async Task MarkAllReadAsync()
+    {
+        await NotificationService.MarkAllAsReadAsync(userId);
+        await LoadAsync();
+    }
+
+    private async Task OpenNotificationAsync(Notification item)
+    {
+        await NotificationService.MarkAsReadAsync(userId, item.Id);
+        NavigationManager.NavigateTo(item.LinkUrl!);
+    }
+}

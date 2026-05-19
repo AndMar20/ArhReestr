@@ -49,7 +49,7 @@ else
                 <p class="section-sub">@StorageModeDescription</p>
             </div>
         </div>
-        <div class="cards">
+        <div class="@FavoritesCardsClass">
             @foreach (var item in favorites)
             {
                 <article class="card">
@@ -93,9 +93,12 @@ else
                         </div>
 
                         <div class="card-actions">
-                            <button @onclick="() => ContactAsync(item)" disabled="@(IsLoading || contactingItems.Contains(item.Id))">
-                                @(contactingItems.Contains(item.Id) ? "Отправка..." : "Оставить заявку")
-                            </button>
+                            @if (CanRequestInteraction)
+                            {
+                                <button @onclick="() => ToggleInteractionAsync(item)" disabled="@(IsLoading || contactingItems.Contains(item.Id))" class="@(activeRequestIds.ContainsKey(item.Id) ? "danger" : string.Empty)">
+                                    @(contactingItems.Contains(item.Id) ? "Обработка..." : activeRequestIds.ContainsKey(item.Id) ? "Отменить заявку" : "Оставить заявку")
+                                </button>
+                            }
 
                             <button class="icon-button favorite-button @(favoriteIds.Contains(item.Id) ? "active" : string.Empty)"
                                     @onclick="() => ToggleFavoriteAsync(item.Id)"
@@ -119,10 +122,13 @@ else
     private readonly List<int> favoriteIds = new();
     private readonly List<RealEstateSummary> favorites = new();
     private readonly HashSet<int> contactingItems = new();
+    private readonly Dictionary<int, int> activeRequestIds = new();
     private bool IsLoading;
     private string? Notification;
     private string NotificationStyle { get; set; } = "info";
     private bool IsAuthenticated;
+    private bool CanRequestInteraction = true;
+    private string FavoritesCardsClass => favorites.Count >= 3 ? "cards" : "cards favorites-cards";
     private string StorageModeLabel => IsAuthenticated ? "Синхронизировано с аккаунтом" : "Локально · без учётной записи";
     private string StorageModeDescription => IsAuthenticated
         ? "Избранное сохраняется в профиле и доступно на всех ваших устройствах."
@@ -139,11 +145,14 @@ else
         Notification = null;
         favorites.Clear();
         favoriteIds.Clear();
+        activeRequestIds.Clear();
 
         try
         {
             var state = await AuthenticationStateProvider.GetAuthenticationStateAsync();
             IsAuthenticated = state.User.Identity?.IsAuthenticated == true;
+            var role = state.User.FindFirst(ClaimTypes.Role)?.Value ?? "client";
+            CanRequestInteraction = !IsAuthenticated || role is "client" or "admin";
 
             var persisted = await FavoriteService.GetAsync();
             favoriteIds.AddRange(persisted);
@@ -152,6 +161,18 @@ else
             {
                 var summaries = await RealEstateService.GetSummariesByIdsAsync(favoriteIds);
                 favorites.AddRange(summaries.OrderBy(s => s.Address));
+                var userIdString = state.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (CanRequestInteraction && int.TryParse(userIdString, out var userId))
+                {
+                    foreach (var item in favorites)
+                    {
+                        var requestId = await InteractionService.GetActiveInteractionIdAsync(userId, item.Id);
+                        if (requestId.HasValue)
+                        {
+                            activeRequestIds[item.Id] = requestId.Value;
+                        }
+                    }
+                }
             }
         }
         catch (InvalidOperationException ex)
@@ -194,7 +215,7 @@ else
         StateHasChanged();
     }
 
-    private async Task ContactAsync(RealEstateSummary item)
+    private async Task ToggleInteractionAsync(RealEstateSummary item)
     {
         if (contactingItems.Contains(item.Id))
         {
@@ -231,8 +252,18 @@ else
 
         try
         {
-            await InteractionService.CreateInteractionAsync(userId, item.AgentId, item.Id, "Заявка из избранного");
-            Notification = "Заявка отправлена. Контакты риелтора отображаются в кабинете клиента.";
+            if (activeRequestIds.ContainsKey(item.Id))
+            {
+                await InteractionService.CancelByClientAndEstateAsync(userId, item.Id);
+                activeRequestIds.Remove(item.Id);
+                Notification = "Заявка отменена.";
+            }
+            else
+            {
+                var requestId = await InteractionService.CreateInteractionAsync(userId, item.AgentId, item.Id, "Заявка из избранного");
+                activeRequestIds[item.Id] = requestId;
+                Notification = "Заявка отправлена. Контакты риелтора отображаются в кабинете клиента.";
+            }
             NotificationStyle = "success";
         }
         catch (Exception)

@@ -1,0 +1,4 @@
+arhreestr.ru, www.arhreestr.ru {
+	encode zstd gzip
+	reverse_proxy webapp:8080
+}

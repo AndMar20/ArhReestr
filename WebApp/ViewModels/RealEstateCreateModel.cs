@@ -38,6 +38,8 @@ public class RealEstateCreateModel
     [Required(ErrorMessage = "Укажите тип недвижимости")]
     public int? TypeId { get; set; }
 
+    public int? StatusId { get; set; }
+
     [Range(1, 1000000000, ErrorMessage = "Цена должна быть больше нуля")]
     public decimal Price { get; set; } = 1000000m;
 

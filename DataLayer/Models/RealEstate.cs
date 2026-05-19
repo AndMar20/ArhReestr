@@ -26,6 +26,11 @@ public class RealEstate
     public int HouseId { get; set; }
 
     /// <summary>
+    /// Статус объявления: черновик, активен, забронирован, продан или архив.
+    /// </summary>
+    public int StatusId { get; set; } = 2;
+
+    /// <summary>
     /// Дополнительное описание объекта, которое видит пользователь.
     /// </summary>
     public string? Description { get; set; }
@@ -79,6 +84,11 @@ public class RealEstate
     /// Навигационное свойство дома.
     /// </summary>
     public virtual House? House { get; set; }
+
+    /// <summary>
+    /// Навигационное свойство статуса объявления.
+    /// </summary>
+    public virtual RealEstateStatus? Status { get; set; }
 
     /// <summary>
     /// Фотографии, связанные с объектом.

@@ -15,12 +15,12 @@ public class ArhUserStore :
     IUserPhoneNumberStore<ApplicationUser>,
     IUserRoleStore<ApplicationUser>
 {
-    private readonly ArhReestrContext _context;
+    private readonly IDbContextFactory<ArhReestrContext> _contextFactory;
     private readonly TimeProvider _timeProvider;
 
-    public ArhUserStore(ArhReestrContext context, TimeProvider timeProvider)
+    public ArhUserStore(IDbContextFactory<ArhReestrContext> contextFactory, TimeProvider timeProvider)
     {
-        _context = context;
+        _contextFactory = contextFactory;
         _timeProvider = timeProvider;
     }
 
@@ -40,9 +40,9 @@ public class ArhUserStore :
     /// <summary>
     /// Загружает сущность пользователя вместе с ролью.
     /// </summary>
-    private async Task<User?> LoadEntityAsync(int id, CancellationToken cancellationToken)
+    private static async Task<User?> LoadEntityAsync(ArhReestrContext context, int id, CancellationToken cancellationToken)
     {
-        return await _context.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
+         return await context.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
     }
 
     /// <summary>
@@ -51,7 +51,8 @@ public class ArhUserStore :
     public async Task<IdentityResult> CreateAsync(ApplicationUser user, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var role = await _context.Roles.FirstOrDefaultAsync(r => r.Id == user.RoleId, cancellationToken);
+        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+        var role = await context.Roles.FirstOrDefaultAsync(r => r.Id == user.RoleId, cancellationToken);
         if (role is null)
         {
             return IdentityResult.Failed(new IdentityError
@@ -75,8 +76,8 @@ public class ArhUserStore :
             EmailVerified = user.EmailConfirmed
         };
 
-        _context.Users.Add(entity);
-        await _context.SaveChangesAsync(cancellationToken);
+        context.Users.Add(entity);
+        await context.SaveChangesAsync(cancellationToken);
         user.Id = entity.Id;
         user.RoleName = role.Name;
         user.CreatedAt = entity.CreatedAt;
@@ -88,14 +89,15 @@ public class ArhUserStore :
     /// </summary>
     public async Task<IdentityResult> DeleteAsync(ApplicationUser user, CancellationToken cancellationToken)
     {
-        var entity = await LoadEntityAsync(user.Id, cancellationToken);
+        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+        var entity = await LoadEntityAsync(context, user.Id, cancellationToken);
         if (entity is null)
         {
             return IdentityResult.Success;
         }
 
         entity.DeletedAt = _timeProvider.GetUtcNow().UtcDateTime;
-        await _context.SaveChangesAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken);
         return IdentityResult.Success;
     }
 
@@ -109,7 +111,8 @@ public class ArhUserStore :
             return null;
         }
 
-        var entity = await LoadEntityAsync(id, cancellationToken);
+        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+        var entity = await LoadEntityAsync(context, id, cancellationToken);
         return entity is null ? null : Map(entity);
     }
 
@@ -118,7 +121,8 @@ public class ArhUserStore :
     /// </summary>
     public async Task<ApplicationUser?> FindByNameAsync(string normalizedUserName, CancellationToken cancellationToken)
     {
-        var entity = await _context.Users
+        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+        var entity = await context.Users
             .Include(u => u.Role)
             .FirstOrDefaultAsync(u => u.Email.ToUpper() == normalizedUserName, cancellationToken);
 
@@ -157,7 +161,8 @@ public class ArhUserStore :
     /// </summary>
     public async Task<IdentityResult> UpdateAsync(ApplicationUser user, CancellationToken cancellationToken)
     {
-        var entity = await LoadEntityAsync(user.Id, cancellationToken);
+        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+        var entity = await LoadEntityAsync(context, user.Id, cancellationToken);
         if (entity is null)
         {
             return IdentityResult.Failed(new IdentityError
@@ -177,7 +182,7 @@ public class ArhUserStore :
         entity.EmailVerified = user.EmailConfirmed;
         entity.PhoneVerified = user.PhoneNumberConfirmed;
 
-        await _context.SaveChangesAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken);
         return IdentityResult.Success;
     }
 
@@ -224,7 +229,8 @@ public class ArhUserStore :
 
     public async Task<ApplicationUser?> FindByEmailAsync(string normalizedEmail, CancellationToken cancellationToken)
     {
-        var entity = await _context.Users.Include(u => u.Role)
+        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+        var entity = await context.Users.Include(u => u.Role)
             .FirstOrDefaultAsync(u => u.Email.ToUpper() == normalizedEmail, cancellationToken);
         return entity is null ? null : Map(entity);
     }
@@ -264,7 +270,8 @@ public class ArhUserStore :
 
     public async Task AddToRoleAsync(ApplicationUser user, string roleName, CancellationToken cancellationToken)
     {
-        var role = await _context.Roles.FirstOrDefaultAsync(r => r.Name == roleName, cancellationToken);
+        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+        var role = await context.Roles.FirstOrDefaultAsync(r => r.Name == roleName, cancellationToken);
         if (role is null)
         {
             throw new InvalidOperationException($"Роль {roleName} не найдена");
@@ -283,7 +290,8 @@ public class ArhUserStore :
     {
         if (string.Equals(user.RoleName, roleName, StringComparison.OrdinalIgnoreCase))
         {
-            var defaultRole = await _context.Roles.FirstOrDefaultAsync(r => r.Name == "client", cancellationToken);
+            await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+            var defaultRole = await context.Roles.FirstOrDefaultAsync(r => r.Name == "client", cancellationToken);
             if (defaultRole is not null)
             {
                 user.RoleId = defaultRole.Id;
@@ -312,7 +320,8 @@ public class ArhUserStore :
     /// </summary>
     public async Task<IList<ApplicationUser>> GetUsersInRoleAsync(string roleName, CancellationToken cancellationToken)
     {
-        var entities = await _context.Users.Include(u => u.Role)
+        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+        var entities = await context.Users.Include(u => u.Role)
             .Where(u => u.Role != null && u.Role.Name == roleName)
             .ToListAsync(cancellationToken);
 

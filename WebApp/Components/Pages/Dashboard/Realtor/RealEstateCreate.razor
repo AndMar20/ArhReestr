@@ -3,6 +3,9 @@
 @using DataLayer.Models
 @attribute [Authorize(Policy = "RequireAgent")]
 @inject RealEstateService RealEstateService
+@inject LookupService LookupService
+@inject GeocodingService GeocodingService
+@inject AddressSuggestionService AddressSuggestionService
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
 
@@ -13,10 +16,6 @@
         <div>
             <h1 class="section-title">Добавить объект недвижимости</h1>
             <p class="section-sub">Укажите адрес дома и параметры квартиры, чтобы опубликовать в каталоге.</p>
-            <div class="badges">
-                <span class="tag-pill primary">Кабинет риелтора</span>
-                <span class="tag-pill">Доступ: риелтор или администратор</span>
-            </div>
         </div>
         <div class="hero-actions">
             <button type="button" class="ghost" @onclick="GoToDashboard">Вернуться в кабинет</button>
@@ -36,34 +35,39 @@
         <div class="two-col">
             <div class="form-stack">
                 <h2>Адрес и дом</h2>
+                <label>Поиск адреса
+                    <input value="@AddressQuery" @oninput="OnAddressInputAsync" list="address-options-create" placeholder="Начните вводить улицу, район или номер дома" />
+                    <datalist id="address-options-create">
+                        @foreach (var suggestion in AddressSuggestions)
+                        {
+                            <option value="@suggestion.DisplayName"></option>
+                        }
+                    </datalist>
+                </label>
                 <label>Район
-                    <InputSelect @bind-Value="Model.DistrictId">
-                        <option value="">Выберите район</option>
+                    <input value="@DistrictQuery" @oninput="OnDistrictInput" list="district-options-create" placeholder="Начните вводить район" />
+                    <datalist id="district-options-create">
                         @foreach (var district in Districts)
                         {
-                            <option value="@district.Id">@district.Name</option>
+                            <option value="@district.Name"></option>
                         }
-                    </InputSelect>
+                    </datalist>
                     <ValidationMessage For="@(() => Model.DistrictId)" />
                 </label>
                 <label>Улица
-                    <InputSelect @bind-Value="Model.StreetId">
-                        <option value="">Выберите улицу</option>
+                    <input value="@StreetQuery" @oninput="OnStreetInput" list="street-options-create" placeholder="Начните вводить улицу" />
+                    <datalist id="street-options-create">
                         @foreach (var street in Streets)
                         {
-                            <option value="@street.Id">@street.Name</option>
+                            <option value="@street.Name"></option>
                         }
-                    </InputSelect>
+                    </datalist>
                     <ValidationMessage For="@(() => Model.StreetId)" />
                 </label>
-                <div class="inline-field">
-                    <label>Новая улица (если нет в списке)
-                        <InputText @bind-Value="Model.NewStreetName" placeholder="Например, Ленина" />
-                    </label>
-                    <button type="button" class="ghost" @onclick="AddStreetAsync" disabled="@(IsSaving || IsStreetSaving)">
-                        @(IsStreetSaving ? "Сохранение..." : "Добавить улицу")
-                    </button>
-                </div>
+                @if (!string.IsNullOrWhiteSpace(StreetQuery) && !Model.StreetId.HasValue)
+                {
+                    <p class="small-text">Новая улица будет добавлена при сохранении объекта.</p>
+                }
                 <label>Номер дома
                     <InputText @bind-Value="Model.HouseNumber" />
                     <ValidationMessage For="@(() => Model.HouseNumber)" />
@@ -80,14 +84,17 @@
                 </div>
                 <div class="grid-2">
                     <label>Широта
-                        <InputNumber @bind-Value="Model.Latitude" step="0.000001" />
+                        <InputNumber @bind-Value="Model.Latitude" step="0.0000001" />
                         <ValidationMessage For="@(() => Model.Latitude)" />
                     </label>
                     <label>Долгота
-                        <InputNumber @bind-Value="Model.Longitude" step="0.000001" />
+                        <InputNumber @bind-Value="Model.Longitude" step="0.0000001" />
                         <ValidationMessage For="@(() => Model.Longitude)" />
                     </label>
                 </div>
+                <button type="button" class="ghost" @onclick="FindCoordinatesAsync" disabled="@(IsSaving || IsGeocoding)">
+                    @(IsGeocoding ? "Поиск на карте..." : "Найти координаты по адресу")
+                </button>
                 <div class="checkbox-row">
                     <label class="checkbox-inline">
                         <InputCheckbox class="checkbox-control" @bind-Value="Model.HasParking" />
@@ -115,13 +122,21 @@
                     </InputSelect>
                     <ValidationMessage For="@(() => Model.TypeId)" />
                 </label>
+                <label>Статус
+                    <InputSelect @bind-Value="Model.StatusId">
+                        @foreach (var status in Statuses)
+                        {
+                            <option value="@status.Id">@status.Name</option>
+                        }
+                    </InputSelect>
+                </label>
                 <div class="grid-2">
                     <label>Цена, ₽
                         <InputNumber @bind-Value="Model.Price" min="1" step="1" />
                         <ValidationMessage For="@(() => Model.Price)" />
                     </label>
                     <label>Площадь, м²
-                        <InputNumber @bind-Value="Model.Area" min="1" step="1" />
+                        <InputNumber @bind-Value="Model.Area" min="1" step="0.01" />
                         <ValidationMessage For="@(() => Model.Area)" />
                     </label>
                 </div>
@@ -141,14 +156,19 @@
                 </label>
                 <div class="form-stack">
                     <label>Фотографии
-                        <InputFile OnChange="OnFilesSelected" />
+                        <InputFile OnChange="OnFilesSelected" multiple accept="image/jpeg,image/png,image/gif" />
                     </label>
                     @if (UploadedPhotos.Count > 0)
                     {
-                        <ul class="small-text">
-                            @foreach (var photo in UploadedPhotos)
+                        <ul class="photo-file-list">
+                            @for (var index = 0; index < UploadedPhotos.Count; index++)
                             {
-                                <li>@photo.Name (@(Math.Round(photo.Size / 1024m, 1)) КБ)</li>
+                                var photo = UploadedPhotos[index];
+                                var indexCopy = index;
+                                <li>
+                                    <span>@photo.Name (@(Math.Round(photo.Size / 1024m, 1)) КБ)</span>
+                                    <button type="button" class="ghost danger compact-button" @onclick="() => RemoveUploadedPhoto(indexCopy)">Удалить</button>
+                                </li>
                             }
                         </ul>
                     }
@@ -170,15 +190,21 @@
     private readonly List<District> Districts = new();
     private readonly List<Street> Streets = new();
     private readonly List<RealEstateType> Types = new();
+    private readonly List<RealEstateStatus> Statuses = new();
     private RealEstateCreateModel Model { get; set; } = new();
     private int _agentId;
     private bool _isAdmin;
     private bool IsSaving;
+    private bool IsGeocoding;
     private string? Notification;
     private string NotificationStyle = "info";
     private bool IsStreetSaving;
     private int? CreatedId;
     private List<IBrowserFile> UploadedPhotos { get; set; } = new();
+    private string DistrictQuery = string.Empty;
+    private string StreetQuery = string.Empty;
+    private string AddressQuery = string.Empty;
+    private IReadOnlyList<AddressSuggestion> AddressSuggestions = Array.Empty<AddressSuggestion>();
 
     protected override async Task OnInitializedAsync()
     {
@@ -192,10 +218,13 @@
             var districts = await RealEstateService.GetDistrictsAsync();
             var streets = await RealEstateService.GetStreetsAsync();
             var types = await RealEstateService.GetTypesAsync();
+            var statuses = await LookupService.GetRealEstateStatusesAsync();
 
             Districts.AddRange(districts);
             Streets.AddRange(streets);
             Types.AddRange(types);
+            Statuses.AddRange(statuses.Where(s => s.Code is "draft" or "active"));
+            Model.StatusId = Statuses.FirstOrDefault(s => s.Code == "active")?.Id ?? Statuses.FirstOrDefault()?.Id;
         }
         catch (InvalidOperationException ex)
         {
@@ -241,6 +270,8 @@
                 HasParking = Model.HasParking,
                 HasElevator = Model.HasElevator
             };
+            DistrictQuery = Districts.FirstOrDefault(d => d.Id == Model.DistrictId)?.Name ?? DistrictQuery;
+            StreetQuery = Streets.FirstOrDefault(s => s.Id == Model.StreetId)?.Name ?? StreetQuery;
         }
         catch (Exception ex)
         {
@@ -297,11 +328,184 @@
         }
     }
 
+    private void OnDistrictInput(ChangeEventArgs args)
+    {
+        DistrictQuery = args.Value?.ToString() ?? string.Empty;
+        var district = Districts.FirstOrDefault(d => string.Equals(d.Name, DistrictQuery, StringComparison.OrdinalIgnoreCase));
+        Model.DistrictId = district?.Id;
+    }
+
+    private void OnStreetInput(ChangeEventArgs args)
+    {
+        StreetQuery = args.Value?.ToString() ?? string.Empty;
+        var street = Streets.FirstOrDefault(s => string.Equals(s.Name, StreetQuery, StringComparison.OrdinalIgnoreCase));
+        Model.StreetId = street?.Id;
+        Model.NewStreetName = Model.StreetId.HasValue ? null : StreetQuery.Trim();
+    }
+
+    private async Task OnAddressInputAsync(ChangeEventArgs args)
+    {
+        AddressQuery = args.Value?.ToString() ?? string.Empty;
+        AddressSuggestions = await AddressSuggestionService.SearchHousesAsync(AddressQuery);
+
+        var selected = AddressSuggestions.FirstOrDefault(s => string.Equals(s.DisplayName, AddressQuery, StringComparison.OrdinalIgnoreCase));
+        if (selected is not null)
+        {
+            ApplyAddressSuggestion(selected);
+            return;
+        }
+
+        ApplyAddressQueryParts(AddressQuery);
+    }
+
+    private void ApplyAddressSuggestion(AddressSuggestion suggestion)
+    {
+        Model.DistrictId = suggestion.DistrictId;
+        Model.StreetId = suggestion.StreetId;
+        Model.NewStreetName = null;
+        Model.HouseNumber = suggestion.HouseNumber;
+        Model.TotalFloors = suggestion.TotalFloors;
+        Model.HasParking = suggestion.HasParking;
+        Model.HasElevator = suggestion.HasElevator;
+        Model.BuildingYear = suggestion.BuildingYear;
+        Model.Latitude = suggestion.Latitude;
+        Model.Longitude = suggestion.Longitude;
+        DistrictQuery = suggestion.DistrictName;
+        StreetQuery = suggestion.StreetName;
+        AddressQuery = suggestion.DisplayName;
+    }
+
+    private void ApplyAddressQueryParts(string query)
+    {
+        var parts = query
+            .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .ToList();
+
+        if (parts.Count >= 1)
+        {
+            var district = Districts.FirstOrDefault(d => parts.Any(part => string.Equals(NormalizeAddressPart(part), NormalizeAddressPart(d.Name), StringComparison.OrdinalIgnoreCase)));
+            if (district is not null)
+            {
+                DistrictQuery = district.Name;
+                Model.DistrictId = district.Id;
+            }
+        }
+
+        if (parts.Count >= 1)
+        {
+            var street = Streets.FirstOrDefault(s => parts.Any(part => NormalizeAddressPart(part).Contains(NormalizeAddressPart(s.Name), StringComparison.OrdinalIgnoreCase)));
+            if (street is not null)
+            {
+                StreetQuery = street.Name;
+                Model.StreetId = street.Id;
+                Model.NewStreetName = null;
+            }
+            else if (parts.Count >= 2)
+            {
+                StreetQuery = RemoveHouseNumber(NormalizeStreetInput(parts[^1]));
+                Model.StreetId = null;
+                Model.NewStreetName = StreetQuery;
+            }
+        }
+
+        var houseNumber = ExtractHouseNumber(parts.LastOrDefault() ?? query);
+        if (!string.IsNullOrWhiteSpace(houseNumber))
+        {
+            Model.HouseNumber = houseNumber;
+        }
+    }
+
+    private static string NormalizeStreetInput(string value)
+    {
+        return global::System.Text.RegularExpressions.Regex
+            .Replace(value, @"\b(ул\.?|улица|д\.?|дом)\b", string.Empty, global::System.Text.RegularExpressions.RegexOptions.IgnoreCase)
+            .Trim(' ', ',', '.');
+    }
+
+    private static string NormalizeAddressPart(string value)
+    {
+        var normalized = NormalizeStreetInput(value).ToLowerInvariant().Replace('ё', 'е');
+        normalized = global::System.Text.RegularExpressions.Regex.Replace(normalized, @"[.,;:()\[\]""'`]+", " ");
+        normalized = global::System.Text.RegularExpressions.Regex.Replace(normalized, @"[-/\\]+", " ");
+        normalized = global::System.Text.RegularExpressions.Regex.Replace(normalized, @"\s+", " ");
+        return normalized.Trim();
+    }
+
+    private static string ExtractHouseNumber(string value)
+    {
+        var match = global::System.Text.RegularExpressions.Regex.Match(value, @"(?:\bд\.?\s*)?(\d+[а-яa-z0-9/-]*)\s*$", global::System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        return match.Success ? match.Groups[1].Value.Trim() : string.Empty;
+    }
+
+    private static string RemoveHouseNumber(string value)
+    {
+        return global::System.Text.RegularExpressions.Regex.Replace(value, @"(?:\bд\.?\s*)?\d+[а-яa-z0-9/-]*\s*$", string.Empty, global::System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim(' ', ',', '.');
+    }
+
+    private async Task FindCoordinatesAsync()
+    {
+        if (IsGeocoding)
+        {
+            return;
+        }
+
+        try
+        {
+            IsGeocoding = true;
+            Notification = null;
+            NotificationStyle = "info";
+
+            var address = BuildAddressForGeocoding();
+            var coordinates = await GeocodingService.FindAsync(address);
+
+            if (coordinates is null)
+            {
+                Notification = "Не удалось найти координаты по этому адресу. Проверьте район, улицу и номер дома.";
+                NotificationStyle = "error";
+                return;
+            }
+
+            Model.Latitude = coordinates.Value.Latitude;
+            Model.Longitude = coordinates.Value.Longitude;
+            Notification = "Координаты найдены и подставлены в форму.";
+            NotificationStyle = "success";
+        }
+        catch (Exception ex)
+        {
+            Notification = ex is InvalidOperationException ? ex.Message : DatabaseErrorMessages.Resolve(ex);
+            NotificationStyle = "error";
+        }
+        finally
+        {
+            IsGeocoding = false;
+        }
+    }
+
+    private string BuildAddressForGeocoding()
+    {
+        var district = Districts.FirstOrDefault(d => d.Id == Model.DistrictId)?.Name;
+        var street = Model.StreetId.HasValue
+            ? Streets.FirstOrDefault(s => s.Id == Model.StreetId)?.Name
+            : Model.NewStreetName;
+
+        return string.Join(", ", new[] { district, street, Model.HouseNumber }
+            .Where(part => !string.IsNullOrWhiteSpace(part))
+            .Select(part => part!.Trim()));
+    }
+
     private Task OnFilesSelected(InputFileChangeEventArgs e)
     {
         try
         {
-            var files = e.GetMultipleFiles(Math.Max(e.FileCount, 1));
+            if (e.FileCount == 0)
+            {
+                UploadedPhotos.Clear();
+                Notification = null;
+                NotificationStyle = "info";
+                return Task.CompletedTask;
+            }
+
+            var files = e.GetMultipleFiles(e.FileCount);
             UploadedPhotos = files.ToList();
 
             if (UploadedPhotos.Count == 0)
@@ -322,6 +526,16 @@
         }
 
         return Task.CompletedTask;
+    }
+
+    private void RemoveUploadedPhoto(int index)
+    {
+        if (index < 0 || index >= UploadedPhotos.Count)
+        {
+            return;
+        }
+
+        UploadedPhotos.RemoveAt(index);
     }
 
     private void GoToDashboard()

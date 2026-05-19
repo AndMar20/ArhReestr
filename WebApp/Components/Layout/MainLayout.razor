@@ -10,9 +10,9 @@
     <header class="top-bar">
         <div class="container nav-inner">
             <div class="nav-header">
-                <div class="brand">
+                <NavLink class="brand" href="/search" Match="NavLinkMatch.All" @onclick="CloseMenu">
                     <img class="brand-logo" height="50" width="100" src="Images/Logo/app-logo.png" alt="Логотип АрхРеестр" />
-                </div>
+                </NavLink>
                 <button
                     type="button"
                     class="nav-toggle"
@@ -27,7 +27,7 @@
             </div>
             <div id="main-nav" class="@NavMenuClass">
                 <nav>
-                    <NavLink href="/" Match="NavLinkMatch.All" @onclick="CloseMenu">Каталог объектов</NavLink>
+                    <NavLink href="/" class="@CatalogLinkClass" Match="NavLinkMatch.All" @onclick="CloseMenu">Каталог объектов</NavLink>
                     <NavLink href="/favorites" Match="NavLinkMatch.Prefix" @onclick="CloseMenu">Избранное</NavLink>
                     <AuthorizeView Roles="admin">
                         <Authorized>
@@ -41,12 +41,17 @@
                     </AuthorizeView>
                     <AuthorizeView Roles="client">
                         <Authorized>
-                            <NavLink href="/client" class="nav-link" Match="NavLinkMatch.Prefix">Кабинет клиента</NavLink>
+                            <NavLink href="/client" class="nav-link" Match="NavLinkMatch.Prefix" @onclick="CloseMenu">Кабинет клиента</NavLink>
                         </Authorized>
                     </AuthorizeView>
-                    <AuthorizeView Roles="admin,agent,client">
+                    <AuthorizeView Roles="agent,client">
                         <Authorized>
                             <NavLink href="/chat" Match="NavLinkMatch.Prefix" @onclick="CloseMenu">Чат</NavLink>
+                        </Authorized>
+                    </AuthorizeView>
+                    <AuthorizeView>
+                        <Authorized>
+                            <NavLink href="/notifications" Match="NavLinkMatch.Prefix" @onclick="CloseMenu">Уведомления</NavLink>
                         </Authorized>
                     </AuthorizeView>
                 </nav>
@@ -79,6 +84,17 @@
     private bool isMenuOpen;
 
     private string NavMenuClass => isMenuOpen ? "nav-menu open" : "nav-menu";
+
+    private string CatalogLinkClass
+    {
+        get
+        {
+            var path = NavigationManager.ToBaseRelativePath(NavigationManager.Uri).Split('?', '#')[0].TrimEnd('/');
+            return string.IsNullOrEmpty(path) || string.Equals(path, "search", StringComparison.OrdinalIgnoreCase)
+                ? "active"
+                : string.Empty;
+        }
+    }
 
     protected override void OnInitialized()
     {

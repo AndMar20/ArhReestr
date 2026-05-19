@@ -1,0 +1,75 @@
+:root {
+    --primary-color: #00ACC1;
+    --primary-hover: #0097A7;
+    --primary-light: #B2EBF2;
+    --primary-dark: #006064;
+    --surface: #ffffff;
+    --surface-alt: #f6fbfc;
+    --text-main: #12303a;
+    --muted: #5a7384;
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: var(--text-main);
+    background: #f5f7fb;
+    line-height: 1.6;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+*,
+*::before,
+*::after {
+    min-width: 0;
+}
+
+:focus-visible {
+    outline: 3px solid rgba(0, 172, 193, 0.35);
+    outline-offset: 2px;
+}
+
+html {
+    overflow-x: hidden;
+}
+
+body {
+    margin: 0;
+    background: radial-gradient(circle at 12% 20%, rgba(178, 235, 242, 0.72) 0, transparent 25%), radial-gradient(circle at 92% 8%, rgba(225, 247, 240, 0.7) 0, transparent 24%), #f7fbfc;
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+img {
+    max-width: 100%;
+    display: block;
+}
+
+p,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+span,
+strong,
+a,
+td,
+th,
+button,
+label {
+    overflow-wrap: break-word;
+}
+
+.page {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.container {
+    width: min(1200px, 92vw);
+    margin: 0 auto;
+    padding: 0 0.75rem;
+}
+

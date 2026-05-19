@@ -1,0 +1,105 @@
+@page "/admin/reports"
+@attribute [Authorize(Policy = "RequireAdmin")]
+
+<PageTitle>Отчёты</PageTitle>
+
+<section class="hero-card admin-hero">
+    <div class="section-header">
+        <div>
+            <h1 class="section-title">Отчёты</h1>
+            <p class="section-sub">Выберите нужный срез данных, период и скачайте Excel-файл.</p>
+        </div>
+    </div>
+    <AdminNav />
+</section>
+
+<div class="panel report-config">
+    <div class="section-header">
+        <div>
+            <h2>Настройка отчёта</h2>
+            <p class="small-text">Отчёты формируются по текущим данным базы.</p>
+        </div>
+    </div>
+
+    <div class="admin-filter-bar report-filter-bar">
+        <label>Тип отчёта
+            <select @bind="ReportType">
+                <option value="full">Полный отчёт</option>
+                <option value="summary">Сводка</option>
+                <option value="districts">Объекты по районам</option>
+                <option value="agents">Активность риелторов</option>
+                <option value="statuses">Заявки по статусам</option>
+                <option value="revenue">Выручка по завершённым сделкам</option>
+                <option value="revenue-monthly">Выручка по месяцам</option>
+                <option value="conversion">Конверсия заявка → сделка</option>
+                <option value="inactive">Объекты без активности</option>
+                <option value="deal-time">Среднее время до сделки</option>
+            </select>
+        </label>
+
+        <div class="report-period-range">
+            <label>Период с
+                <InputDate @bind-Value="DateFrom" />
+            </label>
+            <label>Период по
+                <InputDate @bind-Value="DateTo" />
+            </label>
+        </div>
+
+        <a class="primary report-download" href="@DownloadUrl" target="_blank">Скачать отчёт</a>
+    </div>
+
+    <div class="callout info">
+        <strong>@SelectedReportTitle</strong>
+        <p>@SelectedReportDescription</p>
+    </div>
+</div>
+
+@code {
+    private string ReportType { get; set; } = "full";
+    private DateTime? DateFrom { get; set; }
+    private DateTime? DateTo { get; set; }
+
+    private string DownloadUrl
+    {
+        get
+        {
+            var query = new Dictionary<string, string?>
+            {
+                ["type"] = ReportType,
+                ["from"] = DateFrom?.ToString("yyyy-MM-dd"),
+                ["to"] = DateTo?.ToString("yyyy-MM-dd")
+            };
+
+            return Microsoft.AspNetCore.WebUtilities.QueryHelpers.AddQueryString("/reports/admin.xlsx", query);
+        }
+    }
+
+    private string SelectedReportTitle => ReportType switch
+    {
+        "summary" => "Сводка",
+        "districts" => "Объекты по районам",
+        "agents" => "Активность риелторов",
+        "statuses" => "Заявки по статусам",
+        "revenue" => "Выручка",
+        "revenue-monthly" => "Выручка по месяцам",
+        "conversion" => "Конверсия",
+        "inactive" => "Объекты без активности",
+        "deal-time" => "Среднее время до сделки",
+        _ => "Полный отчёт"
+    };
+
+    private string SelectedReportDescription => ReportType switch
+    {
+        "summary" => "Короткая управленческая сводка по объектам, пользователям, заявкам и сделкам.",
+        "districts" => "Показывает распределение объектов по районам Архангельска.",
+        "agents" => "Помогает оценить нагрузку и активность риелторов по обращениям.",
+        "statuses" => "Показывает, на каких этапах находятся заявки клиентов.",
+        "revenue" => "Считает выручку по завершённым сделкам в выбранном периоде.",
+        "revenue-monthly" => "Группирует выручку по месяцам, чтобы увидеть динамику продаж.",
+        "conversion" => "Сравнивает количество заявок и завершённых сделок.",
+        "inactive" => "Показывает объекты, по которым не было клиентской активности.",
+        "deal-time" => "Считает среднее время от заявки до закрытия сделки.",
+        _ => "Включает обзор, районы, риелторов, статусы, выручку и операционные срезы в одном файле."
+    };
+}

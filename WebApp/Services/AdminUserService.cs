@@ -82,9 +82,16 @@ public class AdminUserService
             throw new InvalidOperationException("Указанная роль недоступна.");
         }
 
-        // Если уже эта роль — ничего не делаем
-        if (user.RoleId == targetRole.Id)
+        // Если уже эта роль — синхронизируем поля пользователя и ничего не добавляем повторно.
+        if (user.RoleId == targetRole.Id || await _userManager.IsInRoleAsync(user, targetRole.Name))
         {
+            if (user.RoleId != targetRole.Id || user.RoleName != targetRole.Name)
+            {
+                user.RoleId = targetRole.Id;
+                user.RoleName = targetRole.Name;
+                await _userManager.UpdateAsync(user);
+            }
+
             return;
         }
 
@@ -102,12 +109,17 @@ public class AdminUserService
             }
         }
 
-        var addResult = await _userManager.AddToRoleAsync(user, targetRole.Name);
-        if (!addResult.Succeeded)
+        // В нашем UserStore снятие любой роли возвращает пользователя в роль client.
+        // Поэтому после RemoveFromRolesAsync целевая роль уже может быть назначена.
+        if (!await _userManager.IsInRoleAsync(user, targetRole.Name))
         {
-            var message = string.Join("; ", addResult.Errors.Select(e => e.Description));
-            _logger.LogWarning("Не удалось обновить роль пользователя {UserId}: {Message}", userId, message);
-            throw new InvalidOperationException(message);
+            var addResult = await _userManager.AddToRoleAsync(user, targetRole.Name);
+            if (!addResult.Succeeded)
+            {
+                var message = string.Join("; ", addResult.Errors.Select(e => e.Description));
+                _logger.LogWarning("Не удалось обновить роль пользователя {UserId}: {Message}", userId, message);
+                throw new InvalidOperationException(message);
+            }
         }
 
         // 4. Обновляем привязку к роли в самой сущности

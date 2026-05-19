@@ -1,0 +1,17 @@
+<nav class="admin-tabs" aria-label="Навигация риелтора">
+    <button type="button" class="@GetClass("overview")" @onclick='() => OnTabChanged.InvokeAsync("overview")'>Обзор</button>
+    <button type="button" class="@GetClass("requests")" @onclick='() => OnTabChanged.InvokeAsync("requests")'>Заявки</button>
+    <button type="button" class="@GetClass("objects")" @onclick='() => OnTabChanged.InvokeAsync("objects")'>Объекты</button>
+</nav>
+
+@code {
+    [Parameter]
+    public string ActiveTab { get; set; } = "overview";
+
+    [Parameter]
+    public EventCallback<string> OnTabChanged { get; set; }
+
+    private string GetClass(string tab) => string.Equals(ActiveTab, tab, StringComparison.OrdinalIgnoreCase)
+        ? "active"
+        : string.Empty;
+}

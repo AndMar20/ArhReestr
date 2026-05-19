@@ -14,6 +14,34 @@ using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.AspNetCore.Antiforgery;
 
 // Точка входа Blazor Server: настраиваем DI, аутентификацию и минимальные API.
+var crashLogPath = Path.Combine(AppContext.BaseDirectory, "webapp-crash.log");
+void WriteCrashLog(string source, Exception exception)
+{
+    try
+    {
+        var message = $"{DateTimeOffset.Now:O} [{source}]{Environment.NewLine}{exception}{Environment.NewLine}{Environment.NewLine}";
+        File.AppendAllText(crashLogPath, message);
+    }
+    catch
+    {
+        // Best-effort crash logging only.
+    }
+}
+
+AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+{
+    if (args.ExceptionObject is Exception exception)
+    {
+        WriteCrashLog("UnhandledException", exception);
+    }
+};
+
+TaskScheduler.UnobservedTaskException += (_, args) =>
+{
+    WriteCrashLog("UnobservedTaskException", args.Exception);
+    args.SetObserved();
+};
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Получаем строку подключения к MySQL из конфигурации; если её нет, используем InMemory, чтобы приложение могло стартовать без БД.
@@ -78,6 +106,7 @@ builder.Services.ConfigureApplicationCookie(options =>
 // Политики авторизации: роль агента и администратора.
 builder.Services.AddAuthorizationBuilder()
     .AddPolicy("RequireAgent", policy => policy.RequireRole("agent", "admin"))
+    .AddPolicy("RequireClient", policy => policy.RequireRole("client", "admin"))
     .AddPolicy("RequireAdmin", policy => policy.RequireRole("admin"));
 
 builder.Services.AddCascadingAuthenticationState();
@@ -89,14 +118,22 @@ builder.Services.AddScoped<ReportService>();
 builder.Services.AddScoped<LookupService>();
 builder.Services.AddScoped<FavoriteService>();
 builder.Services.AddScoped<AdminUserService>();
+builder.Services.AddScoped<AdminReferenceService>();
 builder.Services.AddScoped<NotificationService>();
+builder.Services.AddScoped<AuditLogService>();
 builder.Services.AddScoped<ViewingCalendarService>();
 builder.Services.AddScoped<ChatService>();
+builder.Services.AddScoped<AddressSuggestionService>();
+builder.Services.AddHttpClient<GeocodingService>();
 
 
 
 builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents();
+    .AddInteractiveServerComponents()
+    .AddHubOptions(options =>
+    {
+        options.MaximumReceiveMessageSize = 10 * 1024 * 1024;
+    });
 
 var app = builder.Build();
 
@@ -115,6 +152,7 @@ if (!useInMemory)
             throw new InvalidOperationException(DatabaseErrorMessages.ConnectionFailed);
         }
 
+        await EnsureNotificationLinkColumnAsync(db);
         dbHealthState.MarkAvailable();
     }
     catch (DbException ex)
@@ -132,6 +170,23 @@ if (!useInMemory)
     {
         logger.LogError(ex, DatabaseErrorMessages.UnexpectedError);
         dbHealthState.MarkUnavailable(DatabaseErrorMessages.UnexpectedError);
+    }
+}
+
+static async Task EnsureNotificationLinkColumnAsync(ArhReestrContext db)
+{
+    if (db.Database.IsInMemory())
+    {
+        return;
+    }
+
+    try
+    {
+        await db.Database.ExecuteSqlRawAsync("ALTER TABLE `Notifications` ADD COLUMN `linkUrl` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL AFTER `message`;");
+    }
+    catch
+    {
+        // Column already exists or the DB user cannot alter schema; runtime will surface real DB errors later.
     }
 }
 
@@ -221,12 +276,12 @@ app.MapPost("/logout", async ([FromQuery] string? returnUrl,
     })
     .RequireAuthorization();
 
-app.MapGet("/reports/admin.xlsx", async (ReportService service, TimeProvider timeProvider, CancellationToken token) =>
+app.MapGet("/reports/admin.xlsx", async ([FromQuery] string? type, [FromQuery] DateTime? from, [FromQuery] DateTime? to, ReportService service, TimeProvider timeProvider, CancellationToken token) =>
     {
-        var bytes = await service.BuildExcelAsync(token);
+        var bytes = await service.BuildExcelAsync(type, from, to, token);
         return Results.File(bytes,
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            $"arhreestr-report-{timeProvider.GetUtcNow():yyyyMMddHHmmss}.xlsx");
+            $"arhreestr-{(string.IsNullOrWhiteSpace(type) ? "full" : type)}-{timeProvider.GetUtcNow():yyyyMMddHHmmss}.xlsx");
     })
     .RequireAuthorization("RequireAdmin");
 

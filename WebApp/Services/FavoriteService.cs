@@ -53,6 +53,11 @@ public class FavoriteService
 
     public async Task<bool> AddAsync(int realEstateId)
     {
+        if (await IsSoldAsync(realEstateId))
+        {
+            throw new InvalidOperationException("Проданный объект нельзя добавить в избранное.");
+        }
+
         var userId = await GetCurrentUserIdAsync();
         if (userId is null)
         {
@@ -103,6 +108,11 @@ public class FavoriteService
             return false;
         }
 
+        if (await IsSoldAsync(realEstateId))
+        {
+            throw new InvalidOperationException("Проданный объект нельзя добавить в избранное.");
+        }
+
         await AddAsync(realEstateId);
         return true;
     }
@@ -121,6 +131,18 @@ public class FavoriteService
 
         var rawId = user.FindFirstValue(ClaimTypes.NameIdentifier);
         return int.TryParse(rawId, out var userId) ? userId : null;
+    }
+
+    private async Task<bool> IsSoldAsync(int realEstateId)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+
+        return await context.Interactions
+            .AsNoTracking()
+            .AnyAsync(i => i.RealEstateId == realEstateId
+                && i.DeletedAt == null
+                && i.Status != null
+                && i.Status.Name.Contains("заверш"));
     }
 
     private async Task<HashSet<int>> EnsureLocalCacheAsync()

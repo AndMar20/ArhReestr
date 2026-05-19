@@ -8,6 +8,8 @@ public record RealEstateSummary(
     string Address,
     string District,
     string Type,
+    string Status,
+    int StatusId,
     decimal Price,
     int Rooms,
     decimal Area,
@@ -20,4 +22,5 @@ public record RealEstateSummary(
     bool HasElevator,
     string? PrimaryPhoto,
     decimal? Latitude,
-    decimal? Longitude);
+    decimal? Longitude,
+    bool IsSold);

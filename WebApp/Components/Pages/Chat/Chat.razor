@@ -1,9 +1,11 @@
 @page "/chat"
-@attribute [Authorize(Roles = "agent,client,admin")]
+@attribute [Authorize(Roles = "agent,client")]
 @using global::System.Security.Claims
 @implements IAsyncDisposable
 @inject AuthenticationStateProvider AuthStateProvider
 @inject ChatService ChatService
+@inject InteractionService InteractionService
+@inject NavigationManager NavigationManager
 
 <PageTitle>Чаты</PageTitle>
 
@@ -13,28 +15,62 @@
     </div>
 </section>
 
-<div class="grid" style="grid-template-columns: 320px 1fr; gap:1rem;">
+<div class="chat-layout">
     <article class="panel">
         <h2>Диалоги</h2>
+        <label class="chat-search">Поиск
+            <input @bind="DialogSearch" @bind:event="oninput" placeholder="Клиент, объект, адрес" />
+        </label>
         @if (dialogs.Count == 0)
         {
             <p class="small-text">Диалогов пока нет.</p>
         }
+        else if (!FilteredDialogs.Any())
+        {
+            <p class="small-text">По этому запросу диалоги не найдены.</p>
+        }
         else
         {
-            <ul class="list-clean">
-                @foreach (var d in dialogs)
-                {
-                    <li>
-                        <button class="ghost" style="width:100%;text-align:left;" @onclick="() => OpenDialogAsync(d.RealEstateId, d.PeerId)">
-                            <strong>@d.PeerName</strong><br />
-                            <span class="small-text">@d.RealEstateAddress</span><br />
-                            <span class="small-text">@d.LastMessage</span>
-                            @if (d.HasUnread) { <span class="badge accent">new</span> }
-                        </button>
-                    </li>
-                }
-            </ul>
+            @if (isAgent)
+            {
+                <div class="chat-client-groups">
+                    @foreach (var group in FilteredDialogGroups)
+                    {
+                        <section class="chat-client-group">
+                            <div class="chat-client-heading">
+                                <strong>@group.ClientName</strong>
+                                <span class="small-text">@group.Dialogs.Count диал.</span>
+                            </div>
+                            <ul class="list-clean">
+                                @foreach (var d in group.Dialogs)
+                                {
+                                    <li>
+                                        <button class="ghost dialog-list-button @(IsSelectedDialog(d) ? "active" : string.Empty)" @onclick="() => OpenDialogAsync(d.RealEstateId, d.PeerId)">
+                                            <span class="dialog-object-address">@d.RealEstateAddress</span>
+                                            @if (d.HasUnread) { <span class="badge accent">new</span> }
+                                        </button>
+                                    </li>
+                                }
+                            </ul>
+                        </section>
+                    }
+                </div>
+            }
+            else
+            {
+                <ul class="list-clean">
+                    @foreach (var d in FilteredDialogs)
+                    {
+                        <li>
+                            <button class="ghost dialog-list-button @(IsSelectedDialog(d) ? "active" : string.Empty)" @onclick="() => OpenDialogAsync(d.RealEstateId, d.PeerId)">
+                                <strong class="dialog-peer-name">@d.PeerName</strong><br />
+                                <span class="small-text">@d.RealEstateAddress</span><br />
+                                @if (d.HasUnread) { <span class="badge accent">new</span> }
+                            </button>
+                        </li>
+                    }
+                </ul>
+            }
         }
     </article>
 
@@ -51,23 +87,58 @@
         else
         {
             <div class="section-header">
-                <h2>Сообщения</h2>
+                <div>
+                    <h2>Сообщения</h2>
+                </div>
+                <div class="chat-object-link">
+                    @if (!string.IsNullOrWhiteSpace(selectedRealEstateAddress))
+                    {
+                        <span>@selectedRealEstateAddress</span>
+                    }
+                    <NavLink class="ghost" href="@SelectedObjectUrl">К объекту</NavLink>
+                </div>
             </div>
-            <div style="max-height:420px;overflow:auto;display:grid;gap:.5rem;">
+            @if (selectedInteraction is not null && !isClient)
+            {
+                <div class="chat-status-panel">
+                    <div>
+                        <span class="small-text">Статус взаимодействия</span>
+                        <strong>@selectedInteraction.Status</strong>
+                    </div>
+                    @if (CanEditSelectedInteraction)
+                    {
+                        <InputSelect @bind-Value="selectedStatusId">
+                            @foreach (var status in statuses)
+                            {
+                                <option value="@status.Id">@status.Name</option>
+                            }
+                        </InputSelect>
+                        <button type="button" class="ghost" @onclick="UpdateInteractionStatusAsync" disabled="@isStatusSaving">
+                            @(isStatusSaving ? "Сохранение..." : "Изменить статус")
+                        </button>
+                    }
+                </div>
+            }
+            <div class="chat-messages">
                 @foreach (var m in messages)
                 {
-                    <div style="display:flex;justify-content:@(m.SenderId == userId ? "flex-start" : "flex-end");">
-                    <div class="@(m.SenderId == userId ? "badge accent" : "badge")" style="max-width:75%;">
-                        @m.Message
-                        <div class="small-text">@m.SentAt.ToString("g") · @(m.ReadAt.HasValue ? "прочитано" : "доставлено")</div>
-                    </div>
+                    var isMine = m.SenderId == userId;
+                    <div class="chat-row @(isMine ? "mine" : "theirs")">
+                        <div class="chat-bubble @(isMine ? "mine" : "theirs")">
+                            @if (!isMine)
+                            {
+                                <div class="chat-author">@m.SenderName</div>
+                            }
+                            <div>@m.Message</div>
+                            <div class="chat-meta">@DateTimeDisplay.Format(m.SentAt) · @(m.ReadAt.HasValue ? "прочитано" : "доставлено")</div>
+                        </div>
                     </div>
                 }
             </div>
 
             <div class="form-stack">
                 <textarea class="input-textarea" value="@draft" @oninput="OnMessageInput" rows="@messageRows" style="resize:none;overflow:hidden;"></textarea>
-                <button type="button" class="primary" disabled="string.IsNullOrWhiteSpace(draft)" @onclick="SendAsync">Отправить</button>
+                <button type="button" class="primary" disabled="@string.IsNullOrWhiteSpace(draft)" @onclick="SendAsync">Отправить</button>
             </div>
         }
     </article>
@@ -76,9 +147,14 @@
 @code {
     private readonly List<ChatDialogItem> dialogs = new();
     private readonly List<ChatMessageItem> messages = new();
+    private readonly List<DataLayer.Models.InteractionStatus> statuses = new();
     private int userId;
+    private bool isAdmin;
+    private bool isAgent;
+    private bool isClient;
     private int selectedRealEstateId;
     private int selectedPeerId;
+    private string selectedRealEstateAddress = string.Empty;
     [Parameter]
     [SupplyParameterFromQuery(Name = "realEstateId")]
     public int? RealEstateId { get; set; }
@@ -91,11 +167,45 @@
     private CancellationTokenSource? cts;
     private bool isDisposed;
     private string? chatNotice;
+    private string DialogSearch { get; set; } = string.Empty;
+    private InteractionSummary? selectedInteraction;
+    private int selectedStatusId;
+    private bool isStatusSaving;
+    private bool CanEditSelectedInteraction => selectedInteraction is not null && (isAdmin || selectedInteraction.AgentId == userId);
+    private string CurrentDialogUrl => selectedRealEstateId > 0 && selectedPeerId > 0
+        ? $"/chat?realEstateId={selectedRealEstateId}&peerId={selectedPeerId}"
+        : "/chat";
+    private string SelectedObjectUrl => selectedRealEstateId > 0
+        ? $"/real-estate/{selectedRealEstateId}?returnUrl={Uri.EscapeDataString(CurrentDialogUrl)}"
+        : "/search";
+    private IEnumerable<ChatDialogItem> FilteredDialogs => string.IsNullOrWhiteSpace(DialogSearch)
+        ? dialogs
+        : dialogs.Where(MatchesDialogSearch);
+
+    private IEnumerable<ChatDialogGroup> FilteredDialogGroups => FilteredDialogs
+        .GroupBy(d => new { d.PeerId, d.PeerName })
+        .Select(group => new ChatDialogGroup(
+            group.Key.PeerId,
+            group.Key.PeerName,
+            group.OrderByDescending(d => d.LastMessageAt).ToList()))
+        .OrderByDescending(group => group.Dialogs.Max(d => d.LastMessageAt));
+
+    private bool MatchesDialogSearch(ChatDialogItem dialog)
+    {
+        var term = DialogSearch.Trim();
+        return dialog.PeerName.Contains(term, StringComparison.OrdinalIgnoreCase)
+            || dialog.RealEstateAddress.Contains(term, StringComparison.OrdinalIgnoreCase)
+            || dialog.LastMessage.Contains(term, StringComparison.OrdinalIgnoreCase);
+    }
 
     protected override async Task OnInitializedAsync()
     {
         var state = await AuthStateProvider.GetAuthenticationStateAsync();
         userId = int.TryParse(state.User.FindFirstValue(ClaimTypes.NameIdentifier), out var parsed) ? parsed : 0;
+        isAdmin = state.User.IsInRole("admin");
+        isAgent = state.User.IsInRole("agent");
+        isClient = state.User.IsInRole("client");
+        statuses.AddRange(await InteractionService.GetStatusesAsync());
         await ReloadDialogsAsync();
         await TryOpenFromQueryAsync();
         StartPolling();
@@ -118,7 +228,15 @@
     {
         selectedRealEstateId = realEstateId;
         selectedPeerId = peerId;
+        var dialog = dialogs.FirstOrDefault(d => d.RealEstateId == realEstateId && d.PeerId == peerId);
+        selectedRealEstateAddress = dialog?.RealEstateAddress ?? string.Empty;
+        chatNotice = null;
         await ReloadMessagesAsync();
+    }
+
+    private bool IsSelectedDialog(ChatDialogItem dialog)
+    {
+        return dialog.RealEstateId == selectedRealEstateId && dialog.PeerId == selectedPeerId;
     }
 
     protected override async Task OnParametersSetAsync()
@@ -132,7 +250,9 @@
         {
             selectedRealEstateId = RealEstateId.Value;
             selectedPeerId = PeerId.Value;
-            chatNotice = "Можно сразу написать первое сообщение в этом диалоге.";
+            var dialog = dialogs.FirstOrDefault(d => d.RealEstateId == selectedRealEstateId && d.PeerId == selectedPeerId);
+            selectedRealEstateAddress = dialog?.RealEstateAddress ?? string.Empty;
+            chatNotice = null;
             await ReloadMessagesAsync();
         }
     }
@@ -145,6 +265,12 @@
             messages.Clear();
             messages.AddRange(await ChatService.GetMessagesAsync(userId, selectedRealEstateId, selectedPeerId));
             await ChatService.MarkAsReadAsync(userId, selectedRealEstateId, selectedPeerId);
+            selectedInteraction = await InteractionService.GetDialogInteractionAsync(userId, selectedRealEstateId, selectedPeerId, isAdmin);
+            if (string.IsNullOrWhiteSpace(selectedRealEstateAddress) && selectedInteraction is not null)
+            {
+                selectedRealEstateAddress = selectedInteraction.RealEstate;
+            }
+            selectedStatusId = selectedInteraction?.StatusId ?? statuses.FirstOrDefault()?.Id ?? 0;
             await ReloadDialogsAsync();
             StateHasChanged();
         }
@@ -196,6 +322,36 @@
         messageRows = Math.Clamp(lines, 2, 8);
     }
 
+    private async Task UpdateInteractionStatusAsync()
+    {
+        if (selectedInteraction is null || selectedStatusId <= 0 || isStatusSaving)
+        {
+            return;
+        }
+
+        try
+        {
+            isStatusSaving = true;
+            await InteractionService.UpdateStatusAsync(new InteractionUpdateRequest
+            {
+                InteractionId = selectedInteraction.Id,
+                StatusId = selectedStatusId,
+                Notes = selectedInteraction.Notes
+            }, userId, isAdmin);
+
+            chatNotice = "Статус взаимодействия обновлён.";
+            await ReloadMessagesAsync();
+        }
+        catch (Exception ex)
+        {
+            chatNotice = $"Не удалось изменить статус: {ex.Message}";
+        }
+        finally
+        {
+            isStatusSaving = false;
+        }
+    }
+
     private void StartPolling()
     {
         cts = new CancellationTokenSource();
@@ -240,4 +396,6 @@
         }
         timer?.Dispose();
     }
+
+    private sealed record ChatDialogGroup(int ClientId, string ClientName, IReadOnlyList<ChatDialogItem> Dialogs);
 }

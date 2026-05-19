@@ -1,0 +1,357 @@
+.detail-hero {
+    padding-block: 1.45rem;
+}
+
+.detail-hero .section-header {
+    align-items: center;
+}
+
+.detail-hero .section-title {
+    max-width: 560px;
+    line-height: 1.25;
+}
+
+.detail-hero .eyebrow {
+    margin: 0 0 0.65rem;
+}
+
+.detail-hero-actions {
+    align-content: center;
+    max-width: 630px;
+}
+
+.detail-hero-actions .price {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--primary-dark);
+}
+
+.detail-hero-actions .meta-line {
+    gap: 0.45rem;
+}
+
+.detail-hero-actions .card-actions {
+    justify-content: flex-end;
+}
+
+.detail-hero-actions .icon-button {
+    flex: 0 0 42px;
+}
+
+.detail-grid {
+    display: grid;
+    grid-template-columns: minmax(280px, 0.95fr) minmax(340px, 1.05fr) minmax(300px, 1fr);
+    gap: 1rem;
+    align-items: stretch;
+}
+
+.detail-grid .panel {
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.detail-grid .section-header {
+    align-items: flex-start;
+    gap: 0.75rem;
+}
+
+.detail-grid .section-header h2 {
+    margin: 0;
+    font-size: 1.35rem;
+    line-height: 1.25;
+    overflow-wrap: normal;
+}
+
+.detail-grid .section-header .small-text {
+    max-width: 180px;
+    text-align: right;
+}
+
+.detail-grid > .panel:nth-child(4) {
+    grid-column: 1 / -1;
+}
+
+.detail-grid > .panel:nth-child(-n + 3) {
+    min-height: 100%;
+}
+
+.detail-grid > .panel:nth-child(4) .section-header {
+    align-items: center;
+}
+
+.photo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+    gap: 0.65rem;
+    margin-bottom: 0.75rem;
+}
+
+.photo-grid .photo-thumb {
+    border: none;
+    padding: 0;
+    background: transparent;
+    cursor: pointer;
+}
+
+    .photo-grid .photo-thumb img {
+        width: 100%;
+        height: 150px;
+        object-fit: cover;
+        border-radius: 10px;
+        border: 1px solid #eef2f9;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .photo-grid .photo-thumb:hover img {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+    }
+
+.photo-thumb {
+    border: none;
+    background: transparent;
+    padding: 0;
+    cursor: pointer;
+}
+
+.photo-editor-item {
+    display: grid;
+    gap: 0.45rem;
+}
+
+.photo-file-list {
+    list-style: none;
+    padding: 0;
+    margin: 0.35rem 0 0;
+    display: grid;
+    gap: 0.5rem;
+}
+
+    .photo-file-list li {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 0.6rem 0.7rem;
+        border: 1px solid #e9edf6;
+        border-radius: 12px;
+        background: #f8fbff;
+        color: #6b7280;
+        font-weight: 600;
+    }
+
+.compact-button {
+    padding: 0.4rem 0.7rem;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    box-shadow: none;
+}
+
+.photo-modal {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 30;
+}
+
+.photo-modal__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+}
+
+.photo-modal__content {
+    position: relative;
+    background: #fff;
+    padding: 1rem;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+    max-width: 90vw;
+    max-height: 90vh;
+}
+
+    .photo-modal__content img {
+        max-width: 80vw;
+        max-height: 75vh;
+        object-fit: contain;
+        display: block;
+        border-radius: 8px;
+    }
+
+.photo-modal__close {
+    position: absolute;
+    top: 6px;
+    right: 10px;
+    border: none;
+    background: transparent;
+    font-size: 1.5rem;
+    cursor: pointer;
+}
+
+.photo-modal__nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    border: none;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1.5rem;
+}
+
+    .photo-modal__nav.prev {
+        left: -18px;
+    }
+
+    .photo-modal__nav.next {
+        right: -18px;
+    }
+
+.properties {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.55rem;
+}
+
+    .properties li {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: #f8fbff;
+        border: 1px solid #e9edf6;
+        gap: 0.75rem;
+        padding: 0.65rem 0.8rem;
+        border-radius: 10px;
+    }
+
+    .properties span {
+        color: #6b7280;
+        flex: 0 0 38%;
+    }
+
+    .properties strong {
+        text-align: right;
+    }
+
+.description-block {
+    margin: 0.55rem 0 0.85rem;
+}
+
+.description-block h3 {
+    margin: 0 0 0.35rem;
+    font-size: 1.05rem;
+}
+
+.description-block p {
+    margin: 0;
+}
+
+.calculator {
+    display: grid;
+    gap: 0.65rem;
+}
+
+.calc-result {
+    background: #eef9f2;
+    border: 1px solid #d4f1dd;
+    padding: 0.9rem 1rem;
+    border-radius: 12px;
+    font-weight: 800;
+    color: #1a7f3d;
+}
+
+.edit-estate-panel {
+    padding: 1.35rem;
+}
+
+.edit-estate-form > .two-col {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 1.35rem;
+    align-items: start;
+}
+
+.edit-estate-form h2 {
+    margin: 0 0 0.45rem;
+    font-size: 1.35rem;
+    line-height: 1.25;
+}
+
+.edit-estate-form .form-stack {
+    gap: 0.7rem;
+}
+
+.edit-estate-form label {
+    gap: 0.32rem;
+}
+
+.edit-estate-form input,
+.edit-estate-form select,
+.edit-estate-form textarea {
+    min-height: 42px;
+    padding: 0.58rem 0.75rem;
+}
+
+.edit-estate-form .grid-2 {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.7rem;
+}
+
+.edit-estate-form .checkbox-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    padding-top: 0.2rem;
+}
+
+.edit-estate-form .checkbox-inline {
+    padding: 0.55rem 0.7rem;
+    border: 1px solid #e5ecf8;
+    border-radius: 10px;
+    background: #f8fbff;
+}
+
+.edit-estate-panel + .panel {
+    margin-top: 1rem;
+}
+
+.edit-estate-form > .actions-row {
+    justify-content: flex-end;
+    margin-top: 0.85rem;
+}
+
+.edit-estate-form > .actions-row .primary {
+    min-width: 210px;
+}
+
+.map-wrapper {
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid #dfe7f2;
+    height: 380px;
+    margin-bottom: 0.5rem;
+}
+
+    .map-wrapper iframe {
+        width: 100%;
+        height: 100%;
+        border: none;
+    }
+
+.map-fallback {
+    background: #f8fbff;
+    border: 1px dashed #d7e2f5;
+    padding: 1rem;
+    border-radius: 12px;
+    color: #6b7280;
+}
+

@@ -25,13 +25,17 @@ else if (item is null)
 }
 else
 {
-    <section class="hero-card">
+    <section class="hero-card detail-hero">
         <div class="section-header">
             <div>
                 <p class="eyebrow">Объект недвижимости</p>
                 <h1 class="section-title">@address</h1>
                 <p class="section-sub">@item.Type?.Name · @item.House?.District?.Name</p>
                 <div class="meta-line">
+                    @if (isUnavailable)
+                    {
+                        <span class="badge @(isSold ? "danger" : string.Empty)">@item.Status?.Name</span>
+                    }
                     @if (item.House?.BuildingYear is not null)
                     {
                         <span class="tag-pill">Дом @item.House.BuildingYear г.</span>
@@ -40,7 +44,7 @@ else
                     <span class="tag-pill">@item.Area м²</span>
                 </div>
             </div>
-            <div class="hero-actions">
+            <div class="hero-actions detail-hero-actions">
                 <div class="price">@item.Price.ToString("N0") ₽</div>
                 <div class="meta-line" style="justify-content: flex-end;">
                     <span class="tag-pill">@item.Rooms-комн.</span>
@@ -49,17 +53,23 @@ else
                     <span class="tag-pill">Лифт @(item.House?.HasElevator == true ? "есть" : "нет")</span>
                 </div>
                 <div class="card-actions" style="margin-top: 0.5rem;">
-                    <button @onclick="ContactAsync" disabled="@isContacting">
-                        @(isContacting ? "Отправка..." : "Оставить заявку")
-                    </button>
-                    <button class="icon-button favorite-button @(isFavorite ? "active" : string.Empty)" @onclick="ToggleFavoriteAsync">
-                        <span aria-hidden="true">★</span>
-                        <span class="sr-only">@(isFavorite ? "Убрать из избранного" : "Добавить в избранное")</span>
-                    </button>
-                    <a class="ghost" href="/search">Вернуться к каталогу</a>
+                    @if (canRequestInteraction)
+                    {
+                        <button @onclick="ToggleInteractionAsync" disabled="@isContacting" class="@(activeInteractionId.HasValue ? "danger" : string.Empty)">
+                            @(isContacting ? "Обработка..." : activeInteractionId.HasValue ? "Отменить заявку" : "Оставить заявку")
+                        </button>
+                    }
+                    @if (!isUnavailable)
+                    {
+                        <button class="icon-button favorite-button @(isFavorite ? "active" : string.Empty)" @onclick="ToggleFavoriteAsync">
+                            <span aria-hidden="true">★</span>
+                            <span class="sr-only">@(isFavorite ? "Убрать из избранного" : "Добавить в избранное")</span>
+                        </button>
+                    }
+                    <a class="ghost" href="@BackUrl">@BackButtonText</a>
                     @if (canEdit)
                     {
-                        <a class="ghost" href="/real-estate/@item.Id/edit">Редактировать</a>
+                        <a class="ghost" href="@BuildEditUrl()">Редактировать</a>
                     }
                 </div>
             </div>
@@ -75,15 +85,21 @@ else
             @if (activePhotos.Count > 0)
             {
                 <div class="photo-grid">
-                    @for (var index = 0; index < activePhotos.Count; index++)
+                    @for (var index = 0; index < VisiblePhotos.Count; index++)
                     {
-                        var photo = activePhotos[index];
-                        var indexCopy = index;
+                        var photo = VisiblePhotos[index];
+                        var indexCopy = activePhotos.IndexOf(photo);
                         <button type="button" class="photo-thumb" @onclick="() => OpenGallery(indexCopy)">
                             <img src="@photo.FilePath" alt="Фото объекта" />
                         </button>
                     }
                 </div>
+                @if (activePhotos.Count > MaxVisiblePhotos)
+                {
+                    <button type="button" class="ghost" @onclick="TogglePhotosExpanded">
+                        @(showAllPhotos ? "Свернуть фото" : $"Показать все фото ({activePhotos.Count})")
+                    </button>
+                }
             }
             else
             {
@@ -185,6 +201,9 @@ else
     [Parameter]
     public int Id { get; set; }
 
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    public string? ReturnUrl { get; set; }
+
     private DataLayer.Models.RealEstate? item;
     private bool isFavorite;
     private bool isLoading;
@@ -198,11 +217,23 @@ else
     private decimal monthlyPayment;
     private bool favoriteStatusPending;
     private bool canEdit;
+    private bool isAdminUser;
+    private bool isSold;
+    private bool isUnavailable;
+    private bool canRequestInteraction = true;
+    private int? activeInteractionId;
     private bool isGalleryOpen;
     private int activePhotoIndex;
+    private bool showAllPhotos;
+    private const int MaxVisiblePhotos = 3;
+    private IReadOnlyList<RealEstatePhoto> VisiblePhotos => showAllPhotos
+        ? activePhotos
+        : activePhotos.Take(MaxVisiblePhotos).ToList();
     private bool isContacting;
     private string? contactMessage;
     private string contactMessageStyle = "info";
+    private string BackUrl => IsSafeLocalReturnUrl(ReturnUrl) ? ReturnUrl! : "/search";
+    private string BackButtonText => IsSafeLocalReturnUrl(ReturnUrl) ? "Назад" : "Вернуться к каталогу";
 
     protected override async Task OnParametersSetAsync()
     {
@@ -233,7 +264,7 @@ else
         {
             isLoading = true;
             error = null;
-            item = await RealEstateService.GetDetailsAsync(Id);
+            item = await RealEstateService.GetDetailsAsync(Id, includeUnavailable: true);
             favoriteStatusPending = item is not null;
 
             if (item is not null)
@@ -244,7 +275,18 @@ else
                 activePhotos = item.Photos?.Where(p => p.DeletedAt == null).ToList() ?? new();
                 isGalleryOpen = false;
                 activePhotoIndex = 0;
+                showAllPhotos = activePhotos.Count <= MaxVisiblePhotos;
                 await EvaluateEditPermissionsAsync(item);
+                isSold = item.Status?.Code == "sold";
+                isUnavailable = await RealEstateService.IsUnavailableAsync(item.Id);
+                if (isUnavailable && !isAdminUser)
+                {
+                    item = null;
+                    error = "Объявление недоступно: сделка по объекту завершена.";
+                    return;
+                }
+
+                await EvaluateInteractionStateAsync(item);
                 Recalculate();
             }
         }
@@ -264,11 +306,19 @@ else
 
     private async Task ToggleFavoriteAsync()
     {
-        var added = await FavoriteService.ToggleAsync(Id);
-        isFavorite = added;
+        try
+        {
+            var added = await FavoriteService.ToggleAsync(Id);
+            isFavorite = added;
+        }
+        catch (InvalidOperationException ex)
+        {
+            contactMessage = ex.Message;
+            contactMessageStyle = "error";
+        }
     }
 
-    private async Task ContactAsync()
+    private async Task ToggleInteractionAsync()
     {
         if (item is null || isContacting)
         {
@@ -306,8 +356,17 @@ else
 
         try
         {
-            await InteractionService.CreateInteractionAsync(userId, item.AgentId, item.Id, "Заявка из карточки");
-            contactMessage = "Заявка отправлена. Контакты риелтора доступны в кабинете клиента.";
+            if (activeInteractionId.HasValue)
+            {
+                await InteractionService.CancelByClientAndEstateAsync(userId, item.Id);
+                activeInteractionId = null;
+                contactMessage = "Заявка отменена.";
+            }
+            else
+            {
+                activeInteractionId = await InteractionService.CreateInteractionAsync(userId, item.AgentId, item.Id, "Заявка из карточки");
+                contactMessage = "Заявка отправлена. Контакты риелтора доступны в кабинете клиента.";
+            }
             contactMessageStyle = "success";
         }
         catch (Exception)
@@ -335,8 +394,34 @@ else
         var idValue = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         var userId = int.TryParse(idValue, out var parsed) ? parsed : 0;
         var isAdmin = user.IsInRole("admin");
+        isAdminUser = isAdmin;
 
-        canEdit = isAdmin || (userId > 0 && entity.AgentId == userId);
+        canEdit = isAdmin || (userId > 0 && entity.AgentId == userId && !isSold);
+    }
+
+    private async Task EvaluateInteractionStateAsync(DataLayer.Models.RealEstate entity)
+    {
+        var state = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = state.User;
+
+        if (user.Identity?.IsAuthenticated != true)
+        {
+            canRequestInteraction = !isUnavailable;
+            activeInteractionId = null;
+            return;
+        }
+
+        var role = user.FindFirst(ClaimTypes.Role)?.Value ?? "client";
+        canRequestInteraction = !isUnavailable && role is ("client" or "admin");
+        if (!canRequestInteraction)
+        {
+            activeInteractionId = null;
+            return;
+        }
+
+        var idValue = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var currentUserId = int.TryParse(idValue, out var parsed) ? parsed : 0;
+        activeInteractionId = await InteractionService.GetActiveInteractionIdAsync(currentUserId, entity.Id);
     }
 
     private void Recalculate()
@@ -372,6 +457,23 @@ else
         return $"https://www.openstreetmap.org/?mlat={latitude}&mlon={longitude}#map=17/{latitude}/{longitude}";
     }
 
+    private string BuildEditUrl()
+    {
+        var objectUrl = IsSafeLocalReturnUrl(ReturnUrl)
+            ? $"/real-estate/{Id}?returnUrl={Uri.EscapeDataString(ReturnUrl!)}"
+            : $"/real-estate/{Id}";
+        var returnUrl = objectUrl;
+        return $"/real-estate/{Id}/edit?returnUrl={Uri.EscapeDataString(returnUrl)}";
+    }
+
+    private static bool IsSafeLocalReturnUrl(string? url)
+    {
+        return !string.IsNullOrWhiteSpace(url)
+            && url.StartsWith("/", StringComparison.Ordinal)
+            && !url.StartsWith("//", StringComparison.Ordinal)
+            && !url.Contains("://", StringComparison.Ordinal);
+    }
+
     private void OpenGallery(int index)
     {
         activePhotoIndex = Math.Clamp(index, 0, Math.Max(activePhotos.Count - 1, 0));
@@ -381,6 +483,11 @@ else
     private void CloseGallery()
     {
         isGalleryOpen = false;
+    }
+
+    private void TogglePhotosExpanded()
+    {
+        showAllPhotos = !showAllPhotos;
     }
 
     private void NextPhoto()
