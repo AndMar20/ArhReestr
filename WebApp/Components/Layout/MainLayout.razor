@@ -8,19 +8,19 @@
 @inject NotificationService NotificationService
 @inject ChatService ChatService
 
-<PageTitle>РђСЂС…Р РµРµСЃС‚СЂ</PageTitle>
+<PageTitle>АрхРеестр</PageTitle>
 
 <div class="page">
     <header class="top-bar">
         <div class="container nav-inner">
             <div class="nav-header">
                 <NavLink class="brand" href="/search" Match="NavLinkMatch.All" @onclick="CloseMenu">
-                    <img class="brand-logo" height="50" width="100" src="Images/Logo/app-logo.png" alt="Р›РѕРіРѕС‚РёРї РђСЂС…Р РµРµСЃС‚СЂ" />
+                    <img class="brand-logo" height="50" width="100" src="Images/Logo/app-logo.png" alt="Логотип АрхРеестр" />
                 </NavLink>
                 <button
                     type="button"
                     class="nav-toggle"
-                    aria-label="РћС‚РєСЂС‹С‚СЊ РјРµРЅСЋ"
+                    aria-label="Открыть меню"
                     aria-controls="main-nav"
                     aria-expanded="@isMenuOpen"
                     @onclick="ToggleMenu">
@@ -31,27 +31,27 @@
             </div>
             <div id="main-nav" class="@NavMenuClass">
                 <nav>
-                    <NavLink href="/" class="@CatalogLinkClass" Match="NavLinkMatch.All" @onclick="CloseMenu">РљР°С‚Р°Р»РѕРі РѕР±СЉРµРєС‚РѕРІ</NavLink>
-                    <NavLink href="/favorites" Match="NavLinkMatch.Prefix" @onclick="CloseMenu">РР·Р±СЂР°РЅРЅРѕРµ</NavLink>
+                    <NavLink href="/" class="@CatalogLinkClass" Match="NavLinkMatch.All" @onclick="CloseMenu">Каталог объектов</NavLink>
+                    <NavLink href="/favorites" Match="NavLinkMatch.Prefix" @onclick="CloseMenu">Избранное</NavLink>
                     <AuthorizeView Roles="admin">
                         <Authorized>
-                            <NavLink href="/admin" Match="NavLinkMatch.Prefix" @onclick="CloseMenu">РљР°Р±РёРЅРµС‚ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР°</NavLink>
+                            <NavLink href="/admin" Match="NavLinkMatch.Prefix" @onclick="CloseMenu">Кабинет администратора</NavLink>
                         </Authorized>
                     </AuthorizeView>
                     <AuthorizeView Roles="agent">
                         <Authorized>
-                            <NavLink href="/realtor" Match="NavLinkMatch.Prefix" @onclick="CloseMenu">РљР°Р±РёРЅРµС‚ СЂРёРµР»С‚РѕСЂР°</NavLink>
+                            <NavLink href="/realtor" Match="NavLinkMatch.Prefix" @onclick="CloseMenu">Кабинет риелтора</NavLink>
                         </Authorized>
                     </AuthorizeView>
                     <AuthorizeView Roles="client">
                         <Authorized>
-                            <NavLink href="/client" class="nav-link" Match="NavLinkMatch.Prefix" @onclick="CloseMenu">РљР°Р±РёРЅРµС‚ РєР»РёРµРЅС‚Р°</NavLink>
+                            <NavLink href="/client" class="nav-link" Match="NavLinkMatch.Prefix" @onclick="CloseMenu">Кабинет клиента</NavLink>
                         </Authorized>
                     </AuthorizeView>
                     <AuthorizeView Roles="agent,client">
                         <Authorized>
                             <NavLink href="/chat" Match="NavLinkMatch.Prefix" @onclick="CloseMenu">
-                                Р§Р°С‚
+                                Чат
                                 @if (UnreadChatCount > 0)
                                 {
                                     <span class="nav-counter">@UnreadChatCount</span>
@@ -62,7 +62,7 @@
                     <AuthorizeView>
                         <Authorized>
                             <NavLink href="/notifications" Match="NavLinkMatch.Prefix" @onclick="CloseMenu">
-                                РЈРІРµРґРѕРјР»РµРЅРёСЏ
+                                Уведомления
                                 @if (UnreadNotificationCount > 0)
                                 {
                                     <span class="nav-counter">@UnreadNotificationCount</span>
@@ -80,7 +80,7 @@
             @if (!DatabaseHealthState.IsAvailable && !string.IsNullOrWhiteSpace(DatabaseHealthState.Message))
             {
                 <div class="alert error" style="margin-top:1rem;">
-                    Р‘Р°Р·Р° РґР°РЅРЅС‹С… РІСЂРµРјРµРЅРЅРѕ РЅРµРґРѕСЃС‚СѓРїРЅР°: @DatabaseHealthState.Message
+                    База данных временно недоступна: @DatabaseHealthState.Message
                 </div>
             }
             @Body
@@ -171,4 +171,3 @@
         NavigationManager.LocationChanged -= OnLocationChanged;
     }
 }
-

@@ -1,4 +1,4 @@
-@page "/profile"
+﻿@page "/profile"
 @attribute [Authorize]
 @using global::System.ComponentModel.DataAnnotations
 @inject AuthenticationStateProvider AuthStateProvider
@@ -39,36 +39,71 @@
         <button type="submit" class="primary" disabled="@IsSaving">@(IsSaving ? "Сохранение..." : "Сохранить")</button>
     </EditForm>
 
-    <div class="panel-section">
-        <h2>Пароль</h2>
-        <EditForm Model="PasswordModel" OnValidSubmit="ChangePasswordAsync" class="form-stack" FormName="changePasswordForm">
-            <DataAnnotationsValidator />
-            <ValidationSummary />
+    <div class="panel-section password-section">
+        <div class="section-header compact">
+            <div>
+                <h2>Пароль</h2>
+                <p class="small-text">Сначала подтвердите текущий пароль, затем задайте новый.</p>
+            </div>
+            @if (!IsPasswordFlowVisible)
+            {
+                <button type="button" class="ghost" @onclick="StartPasswordFlow">Изменить пароль</button>
+            }
+        </div>
 
-            <label>Текущий пароль
-                <InputText @bind-Value="PasswordModel.CurrentPassword" type="password" />
-            </label>
-            <label>Новый пароль
-                <InputText @bind-Value="PasswordModel.NewPassword" type="password" />
-            </label>
-            <label>Повторите новый пароль
-                <InputText @bind-Value="PasswordModel.ConfirmPassword" type="password" />
-            </label>
+        @if (IsPasswordFlowVisible && !IsCurrentPasswordVerified)
+        {
+            <EditForm Model="VerifyPassword" OnValidSubmit="VerifyCurrentPasswordAsync" class="form-stack password-flow-form" FormName="verifyPasswordForm">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
 
-            <button type="submit" class="primary" disabled="@IsChangingPassword">
-                @(IsChangingPassword ? "Обновление..." : "Изменить пароль")
-            </button>
-        </EditForm>
+                <label>Текущий пароль
+                    <InputText @bind-Value="VerifyPassword.CurrentPassword" type="password" autocomplete="current-password" />
+                </label>
+
+                <div class="actions-row password-actions">
+                    <button type="submit" class="primary" disabled="@IsChangingPassword">
+                        @(IsChangingPassword ? "Проверка..." : "Подтвердить пароль")
+                    </button>
+                    <button type="button" class="ghost" @onclick="CancelPasswordFlow" disabled="@IsChangingPassword">Отмена</button>
+                </div>
+            </EditForm>
+        }
+        else if (IsPasswordFlowVisible)
+        {
+            <EditForm Model="NewPassword" OnValidSubmit="ChangePasswordAsync" class="form-stack password-flow-form" FormName="changePasswordForm">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+
+                <label>Новый пароль
+                    <InputText @bind-Value="NewPassword.NewPassword" type="password" autocomplete="new-password" />
+                </label>
+                <label>Повторите новый пароль
+                    <InputText @bind-Value="NewPassword.ConfirmPassword" type="password" autocomplete="new-password" />
+                </label>
+
+                <div class="actions-row password-actions">
+                    <button type="submit" class="primary" disabled="@IsChangingPassword">
+                        @(IsChangingPassword ? "Обновление..." : "Сохранить новый пароль")
+                    </button>
+                    <button type="button" class="ghost" @onclick="CancelPasswordFlow" disabled="@IsChangingPassword">Отмена</button>
+                </div>
+            </EditForm>
+        }
     </div>
 </section>
 
 @code {
     private readonly ApplicationUser Model = new();
-    private readonly ChangePasswordModel PasswordModel = new();
+    private readonly VerifyPasswordModel VerifyPassword = new();
+    private readonly NewPasswordModel NewPassword = new();
+    private string verifiedCurrentPassword = string.Empty;
     private string? Notification;
     private string NotificationStyle = "info";
     private bool IsSaving;
     private bool IsChangingPassword;
+    private bool IsPasswordFlowVisible;
+    private bool IsCurrentPasswordVerified;
 
     protected override async Task OnInitializedAsync()
     {
@@ -117,7 +152,7 @@
             }
 
             Notification = "Данные успешно сохранены.";
-            NotificationStyle = "info";
+            NotificationStyle = "success";
         }
         finally
         {
@@ -125,7 +160,27 @@
         }
     }
 
-    private async Task ChangePasswordAsync()
+    private void StartPasswordFlow()
+    {
+        Notification = null;
+        VerifyPassword.CurrentPassword = string.Empty;
+        NewPassword.NewPassword = string.Empty;
+        NewPassword.ConfirmPassword = string.Empty;
+        IsPasswordFlowVisible = true;
+        IsCurrentPasswordVerified = false;
+    }
+
+    private void CancelPasswordFlow()
+    {
+        VerifyPassword.CurrentPassword = string.Empty;
+        NewPassword.NewPassword = string.Empty;
+        NewPassword.ConfirmPassword = string.Empty;
+        IsPasswordFlowVisible = false;
+        IsCurrentPasswordVerified = false;
+        IsChangingPassword = false;
+    }
+
+    private async Task VerifyCurrentPasswordAsync()
     {
         IsChangingPassword = true;
         try
@@ -139,7 +194,48 @@
                 return;
             }
 
-            var result = await UserManager.ChangePasswordAsync(user, PasswordModel.CurrentPassword, PasswordModel.NewPassword);
+            if (!await UserManager.CheckPasswordAsync(user, VerifyPassword.CurrentPassword))
+            {
+                Notification = "Текущий пароль указан неверно.";
+                NotificationStyle = "error";
+                return;
+            }
+
+            verifiedCurrentPassword = VerifyPassword.CurrentPassword;
+            NewPassword.NewPassword = string.Empty;
+            NewPassword.ConfirmPassword = string.Empty;
+            IsCurrentPasswordVerified = true;
+            Notification = "Текущий пароль подтверждён. Введите новый пароль.";
+            NotificationStyle = "success";
+        }
+        finally
+        {
+            IsChangingPassword = false;
+        }
+    }
+
+    private async Task ChangePasswordAsync()
+    {
+        if (!IsCurrentPasswordVerified)
+        {
+            Notification = "Сначала подтвердите текущий пароль.";
+            NotificationStyle = "error";
+            return;
+        }
+
+        IsChangingPassword = true;
+        try
+        {
+            var state = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = await UserManager.GetUserAsync(state.User);
+            if (user is null)
+            {
+                Notification = "Пользователь не найден.";
+                NotificationStyle = "error";
+                return;
+            }
+
+            var result = await UserManager.ChangePasswordAsync(user, verifiedCurrentPassword, NewPassword.NewPassword);
             if (!result.Succeeded)
             {
                 Notification = string.Join("; ", result.Errors.Select(e => e.Description));
@@ -147,9 +243,7 @@
                 return;
             }
 
-            PasswordModel.CurrentPassword = string.Empty;
-            PasswordModel.NewPassword = string.Empty;
-            PasswordModel.ConfirmPassword = string.Empty;
+            CancelPasswordFlow();
             Notification = "Пароль успешно изменён.";
             NotificationStyle = "success";
         }
@@ -159,16 +253,22 @@
         }
     }
 
-    private sealed class ChangePasswordModel
+    private sealed class VerifyPasswordModel
     {
         [Required(ErrorMessage = "Введите текущий пароль")]
         public string CurrentPassword { get; set; } = string.Empty;
+    }
 
+    private sealed class NewPasswordModel
+    {
         [Required(ErrorMessage = "Введите новый пароль")]
         [MinLength(6, ErrorMessage = "Пароль должен быть не короче 6 символов")]
         public string NewPassword { get; set; } = string.Empty;
 
+        [Required(ErrorMessage = "Повторите новый пароль")]
         [Compare(nameof(NewPassword), ErrorMessage = "Пароли не совпадают")]
         public string ConfirmPassword { get; set; } = string.Empty;
     }
 }
+
+

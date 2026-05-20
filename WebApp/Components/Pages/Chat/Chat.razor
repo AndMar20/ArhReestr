@@ -1,4 +1,4 @@
-@page "/chat"
+﻿@page "/chat"
 @attribute [Authorize(Roles = "agent,client")]
 @using global::System.Security.Claims
 @implements IAsyncDisposable
@@ -15,8 +15,8 @@
     </div>
 </section>
 
-<div class="chat-layout">
-    <article class="panel">
+<div class="chat-layout @(selectedRealEstateId > 0 ? "chat-open" : string.Empty)">
+    <article class="panel chat-dialogs-panel">
         <h2>Диалоги</h2>
         <label class="chat-search">Поиск
             <input @bind="DialogSearch" @bind:event="oninput" placeholder="Клиент, объект, адрес" />
@@ -74,7 +74,7 @@
         }
     </article>
 
-    <article class="panel">
+    <article class="panel chat-messages-panel">
         @if (!string.IsNullOrWhiteSpace(chatNotice))
         {
             <div class="alert info">@chatNotice</div>
@@ -82,23 +82,30 @@
 
         @if (selectedRealEstateId == 0)
         {
-            <p class="small-text">Выберите диалог слева.</p>
+            <p class="small-text">Выберите диалог.</p>
         }
         else
         {
-            <div class="section-header">
-                <div>
+            <div class="section-header chat-header">
+                <button type="button" class="ghost chat-back-button" @onclick="BackToDialogs">Назад</button>
+                <div class="chat-title-block">
                     <h2>Сообщения</h2>
-                </div>
-                <div class="chat-object-link">
                     @if (!string.IsNullOrWhiteSpace(selectedRealEstateAddress))
                     {
-                        <span>@selectedRealEstateAddress</span>
+                        <span class="small-text">@selectedRealEstateAddress</span>
                     }
-                    <NavLink class="ghost" href="@SelectedObjectUrl">К объекту</NavLink>
-                    <button type="button" class="danger ghost" @onclick="DeleteSelectedDialogAsync" disabled="@isDeletingDialog">
-                        @(isDeletingDialog ? "Удаляем..." : "Удалить диалог")
-                    </button>
+                </div>
+                <div class="chat-menu-wrap">
+                    <button type="button" class="icon-button chat-menu-button" @onclick="ToggleDialogMenu" aria-label="Действия диалога">⋯</button>
+                    @if (isDialogMenuOpen)
+                    {
+                        <div class="chat-menu">
+                            <NavLink class="ghost" href="@SelectedObjectUrl">К объекту</NavLink>
+                            <button type="button" class="danger ghost" @onclick="DeleteSelectedDialogAsync" disabled="@isDeletingDialog">
+                                @(isDeletingDialog ? "Удаляем..." : "Удалить диалог")
+                            </button>
+                        </div>
+                    }
                 </div>
             </div>
             @if (selectedInteraction is not null && !isClient)
@@ -123,6 +130,10 @@
                 </div>
             }
             <div class="chat-messages">
+                @if (messages.Count == 0)
+                {
+                    <p class="small-text chat-empty-state">Сообщений пока нет.</p>
+                }
                 @foreach (var m in messages)
                 {
                     var isMine = m.SenderId == userId;
@@ -139,7 +150,7 @@
                 }
             </div>
 
-            <div class="form-stack">
+            <div class="form-stack chat-send-form">
                 <textarea class="input-textarea" value="@draft" @oninput="OnMessageInput" rows="@messageRows" style="resize:none;overflow:hidden;"></textarea>
                 <button type="button" class="primary" disabled="@string.IsNullOrWhiteSpace(draft)" @onclick="SendAsync">Отправить</button>
             </div>
@@ -175,6 +186,7 @@
     private int selectedStatusId;
     private bool isStatusSaving;
     private bool isDeletingDialog;
+    private bool isDialogMenuOpen;
     private bool CanEditSelectedInteraction => selectedInteraction is not null && (isAdmin || selectedInteraction.AgentId == userId);
     private string CurrentDialogUrl => selectedRealEstateId > 0 && selectedPeerId > 0
         ? $"/chat?realEstateId={selectedRealEstateId}&peerId={selectedPeerId}"
@@ -386,6 +398,22 @@
         }
     }
 
+    private void ToggleDialogMenu()
+    {
+        isDialogMenuOpen = !isDialogMenuOpen;
+    }
+
+    private void BackToDialogs()
+    {
+        selectedRealEstateId = 0;
+        selectedPeerId = 0;
+        selectedRealEstateAddress = string.Empty;
+        selectedInteraction = null;
+        messages.Clear();
+        isDialogMenuOpen = false;
+        chatNotice = null;
+        NavigationManager.NavigateTo("/chat");
+    }
     private void StartPolling()
     {
         cts = new CancellationTokenSource();
@@ -433,3 +461,9 @@
 
     private sealed record ChatDialogGroup(int ClientId, string ClientName, IReadOnlyList<ChatDialogItem> Dialogs);
 }
+
+
+
+
+
+

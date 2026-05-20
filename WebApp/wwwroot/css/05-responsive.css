@@ -961,3 +961,467 @@
         height: 180px;
     }
 }
+
+/* Phone layout corrections after device testing. */
+@media (max-width: 540px) {
+    .cards,
+    .favorites-cards {
+        grid-template-columns: minmax(0, 1fr);
+        justify-content: stretch;
+    }
+
+    .card {
+        width: 100%;
+    }
+
+    .card img {
+        height: 190px;
+    }
+
+    .card-content {
+        padding: 0.85rem;
+    }
+
+    .card .meta-line {
+        display: flex;
+        align-items: flex-start;
+        justify-content: flex-start;
+        gap: 0.45rem;
+    }
+
+    .card .meta-line .tag-pill {
+        width: auto;
+        max-width: 100%;
+        min-height: 0;
+        padding: 0.22rem 0.65rem;
+        font-size: 0.72rem;
+        white-space: normal;
+    }
+
+    .card h2 {
+        min-height: 0;
+        font-size: 1rem;
+    }
+
+    .card .price {
+        font-size: 1.12rem;
+    }
+
+    .card-actions {
+        grid-template-columns: minmax(0, 1fr) 40px minmax(0, 1fr);
+        gap: 0.45rem;
+    }
+
+    .card-actions .ghost {
+        grid-column: auto;
+    }
+
+    .card-actions .icon-button {
+        width: 40px;
+        height: 40px;
+        min-width: 40px;
+        min-height: 40px;
+        justify-self: center;
+    }
+
+    .card-actions .ghost,
+    .card-actions button:not(.icon-button) {
+        min-height: 40px;
+        font-size: 0.84rem;
+        padding: 0.55rem 0.7rem;
+    }
+
+    .detail-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) !important;
+        width: 100%;
+    }
+
+    .detail-grid > .panel {
+        grid-column: auto !important;
+        width: 100%;
+        min-width: 0;
+    }
+
+    .detail-hero .section-header {
+        align-items: stretch;
+    }
+
+    .detail-hero-actions .meta-line {
+        justify-content: flex-start;
+    }
+
+    .detail-hero-actions .tag-pill,
+    .detail-hero .tag-pill {
+        width: auto;
+        max-width: 100%;
+        padding-inline: 0.55rem;
+        font-size: 0.78rem;
+    }
+
+    .detail-hero-actions .card-actions {
+        display: grid;
+        grid-template-columns: 42px minmax(0, 1fr);
+        gap: 0.5rem;
+    }
+
+    .detail-hero-actions .card-actions .primary {
+        grid-column: 1 / -1;
+    }
+
+    .detail-hero-actions .card-actions .ghost {
+        min-width: 0;
+        width: 100%;
+    }
+
+    .detail-hero-actions .card-actions .icon-button {
+        justify-self: start;
+    }
+
+    .properties li {
+        display: grid;
+        grid-template-columns: minmax(90px, 0.42fr) minmax(0, 1fr);
+    }
+
+    .properties strong {
+        text-align: right;
+    }
+}
+
+@media (max-width: 420px) {
+    .cards,
+    .favorites-cards {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .card img {
+        height: 190px;
+    }
+
+    .card-actions {
+        grid-template-columns: minmax(0, 1fr) 40px minmax(0, 1fr);
+    }
+
+    .card-actions .icon-button {
+        width: 40px;
+        height: 40px;
+        min-width: 40px;
+        min-height: 40px;
+    }
+}
+
+/* Client dashboard, chat and profile password flow mobile fixes. */
+@media (max-width: 720px) {
+    .chat-layout {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) !important;
+        width: 100%;
+        overflow: visible;
+    }
+
+    .chat-layout > .panel,
+    .chat-dialogs-panel,
+    .chat-messages-panel {
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    .chat-header {
+        align-items: stretch;
+    }
+
+    .chat-object-link {
+        display: grid;
+        grid-template-columns: 1fr;
+        max-width: 100%;
+        width: 100%;
+    }
+
+    .chat-object-link span {
+        text-align: left;
+    }
+
+    .chat-object-link .ghost,
+    .chat-object-link button {
+        width: 100%;
+    }
+
+    .chat-messages {
+        max-height: 48vh;
+        min-height: 220px;
+    }
+
+    .chat-send-form {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+
+    .chat-send-form .primary {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .stacked-table td.client-actions {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0.55rem;
+    }
+
+    .stacked-table td.client-actions::before {
+        display: none;
+    }
+
+    .stacked-table td.client-actions a,
+    .stacked-table td.client-actions button {
+        width: 100%;
+        min-width: 0;
+        max-width: none;
+        min-height: 42px;
+        white-space: normal;
+    }
+
+    .password-section .section-header {
+        align-items: stretch;
+    }
+
+    .password-section .section-header .ghost {
+        width: 100%;
+    }
+
+    .profile-card .password-flow-form {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+
+    .profile-card .password-flow-form label,
+    .profile-card .password-flow-form .validation-summary-errors,
+    .profile-card .password-flow-form .password-actions {
+        grid-column: 1 / -1 !important;
+    }
+
+    .password-actions {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        width: 100%;
+    }
+
+    .password-actions button {
+        width: 100%;
+        min-width: 0;
+    }
+}
+
+/* Final phone corrections for object details, client interactions and chat. */
+@media (max-width: 540px) {
+    .detail-grid {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+
+    .detail-grid > .panel:nth-child(1) {
+        order: 2;
+    }
+
+    .detail-grid > .panel:nth-child(2) {
+        order: 1;
+    }
+
+    .detail-grid > .panel:nth-child(3) {
+        order: 3;
+    }
+
+    .detail-grid > .panel:nth-child(4) {
+        order: 4;
+    }
+
+    .detail-hero-actions .card-actions {
+        display: grid !important;
+        grid-template-columns: 44px minmax(0, 1fr) !important;
+        gap: 0.55rem !important;
+        width: 100%;
+    }
+
+    .detail-hero-actions .card-actions > button:not(.icon-button),
+    .detail-hero-actions .card-actions > .primary {
+        grid-column: 1 / -1 !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        min-height: 46px !important;
+        padding: 0.7rem 0.9rem !important;
+        font-size: 0.9rem !important;
+        white-space: normal !important;
+    }
+
+    .detail-hero-actions .card-actions > .icon-button {
+        grid-column: 1 !important;
+        justify-self: stretch !important;
+    }
+
+    .detail-hero-actions .card-actions > .ghost {
+        width: 100% !important;
+        min-width: 0 !important;
+        min-height: 46px !important;
+    }
+
+    .detail-hero-actions .card-actions > .ghost:first-of-type {
+        grid-column: 2 !important;
+    }
+
+    .detail-hero-actions .card-actions > .ghost:not(:first-of-type) {
+        grid-column: 1 / -1 !important;
+    }
+
+    .stacked-table td.client-actions,
+    .stacked-table td.client-actions.table-actions {
+        display: flex !important;
+        grid-template-columns: none !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 0.55rem !important;
+        padding: 0.85rem !important;
+    }
+
+    .stacked-table td.client-actions::before,
+    .stacked-table td.client-actions.table-actions::before {
+        content: none !important;
+        display: none !important;
+    }
+
+    .stacked-table td.client-actions > *,
+    .stacked-table td.client-actions.table-actions > * {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: none !important;
+        min-height: 42px !important;
+        white-space: normal !important;
+    }
+
+    .chat-messages {
+        min-height: 140px !important;
+        max-height: 42vh;
+    }
+
+    .chat-empty-state {
+        margin: auto;
+        text-align: center;
+    }
+
+    .chat-messages-panel .chat-object-link {
+        gap: 0.55rem;
+    }
+}
+
+/* Object detail action button polish. */
+.detail-hero-actions .card-actions > button.primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    line-height: 1.2;
+}
+
+@media (max-width: 540px) {
+    .detail-hero-actions .card-actions > button.primary {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: center !important;
+    }
+}
+
+/* Messenger-like chat flow on phones. */
+@media (max-width: 720px) {
+    .chat-layout:not(.chat-open) .chat-messages-panel {
+        display: none !important;
+    }
+
+    .chat-layout.chat-open .chat-dialogs-panel {
+        display: none !important;
+    }
+
+    .chat-layout.chat-open .chat-messages-panel {
+        display: grid !important;
+    }
+
+    .chat-header {
+        grid-template-columns: auto minmax(0, 1fr) auto !important;
+        align-items: center !important;
+        gap: 0.55rem !important;
+    }
+
+    .chat-back-button {
+        display: inline-flex !important;
+        width: auto !important;
+        min-width: 0 !important;
+        min-height: 40px !important;
+        padding-inline: 0.8rem !important;
+    }
+
+    .chat-title-block {
+        text-align: left;
+    }
+
+    .chat-title-block h2 {
+        font-size: 1.2rem;
+    }
+
+    .chat-title-block .small-text {
+        line-height: 1.25;
+    }
+
+    .chat-menu-wrap {
+        justify-self: end;
+    }
+
+    .chat-menu {
+        min-width: min(220px, 72vw);
+    }
+
+    .chat-messages-panel {
+        min-height: calc(100svh - 220px);
+    }
+
+    .chat-messages-panel .chat-object-link {
+        display: none !important;
+    }
+}
+
+/* Client cabinet action row. */
+@media (max-width: 720px) {
+    .stacked-table td.client-actions.table-actions {
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        align-items: stretch !important;
+        gap: 0.45rem !important;
+        padding: 0.75rem !important;
+    }
+
+    .stacked-table td.client-actions.table-actions::before {
+        content: none !important;
+        display: none !important;
+    }
+
+    .stacked-table td.client-actions.table-actions > * {
+        width: 100% !important;
+        min-width: 0 !important;
+        min-height: 42px !important;
+        padding-inline: 0.45rem !important;
+        font-size: 0.78rem !important;
+        line-height: 1.15 !important;
+        text-align: center !important;
+        justify-content: center !important;
+    }
+}
+
+@media (max-width: 380px) {
+    .stacked-table td.client-actions.table-actions {
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        gap: 0.35rem !important;
+    }
+
+    .stacked-table td.client-actions.table-actions > * {
+        font-size: 0.72rem !important;
+        padding-inline: 0.3rem !important;
+    }
+}

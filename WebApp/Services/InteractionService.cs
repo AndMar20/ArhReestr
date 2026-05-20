@@ -1,4 +1,4 @@
-using DataLayer;
+﻿using DataLayer;
 using Microsoft.EntityFrameworkCore;
 using System.Data.Common;
 using WebApp.Infrastructure;
@@ -8,7 +8,7 @@ using System;
 namespace WebApp.Services;
 
 /// <summary>
-/// Работает с обращениями клиентов: загрузка, создание и смена статусов.
+/// Р Р°Р±РѕС‚Р°РµС‚ СЃ РѕР±СЂР°С‰РµРЅРёСЏРјРё РєР»РёРµРЅС‚РѕРІ: Р·Р°РіСЂСѓР·РєР°, СЃРѕР·РґР°РЅРёРµ Рё СЃРјРµРЅР° СЃС‚Р°С‚СѓСЃРѕРІ.
 /// </summary>
 public class InteractionService
 {
@@ -19,7 +19,7 @@ public class InteractionService
     private readonly AuditLogService _auditLogService;
 
     /// <summary>
-    /// Получаем зависимости EF Core, логирования и поставщика времени (для audit-полей).
+    /// РџРѕР»СѓС‡Р°РµРј Р·Р°РІРёСЃРёРјРѕСЃС‚Рё EF Core, Р»РѕРіРёСЂРѕРІР°РЅРёСЏ Рё РїРѕСЃС‚Р°РІС‰РёРєР° РІСЂРµРјРµРЅРё (РґР»СЏ audit-РїРѕР»РµР№).
     /// </summary>
     public InteractionService(
         IDbContextFactory<ArhReestrContext> contextFactory,
@@ -36,13 +36,13 @@ public class InteractionService
     }
 
     /// <summary>
-    /// Отдаёт обращения конкретного агента, включая связанные сущности для вывода в UI.
+    /// РћС‚РґР°С‘С‚ РѕР±СЂР°С‰РµРЅРёСЏ РєРѕРЅРєСЂРµС‚РЅРѕРіРѕ Р°РіРµРЅС‚Р°, РІРєР»СЋС‡Р°СЏ СЃРІСЏР·Р°РЅРЅС‹Рµ СЃСѓС‰РЅРѕСЃС‚Рё РґР»СЏ РІС‹РІРѕРґР° РІ UI.
     /// </summary>
     public async Task<IReadOnlyList<InteractionSummary>> GetAgentInteractionsAsync(int agentId, CancellationToken cancellationToken = default)
     {
         if (agentId <= 0)
         {
-            throw new InvalidOperationException("Не удалось определить пользователя-агента");
+            throw new InvalidOperationException("РќРµ СѓРґР°Р»РѕСЃСЊ РѕРїСЂРµРґРµР»РёС‚СЊ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ-Р°РіРµРЅС‚Р°");
         }
 
         try
@@ -75,13 +75,13 @@ public class InteractionService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Не удалось получить обращения для агента");
+            _logger.LogError(ex, "РќРµ СѓРґР°Р»РѕСЃСЊ РїРѕР»СѓС‡РёС‚СЊ РѕР±СЂР°С‰РµРЅРёСЏ РґР»СЏ Р°РіРµРЅС‚Р°");
             return Array.Empty<InteractionSummary>();
         }
     }
 
     /// <summary>
-    /// Отдаёт обращения для администратора: выборка последних записей без фильтра по агенту.
+    /// РћС‚РґР°С‘С‚ РѕР±СЂР°С‰РµРЅРёСЏ РґР»СЏ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР°: РІС‹Р±РѕСЂРєР° РїРѕСЃР»РµРґРЅРёС… Р·Р°РїРёСЃРµР№ Р±РµР· С„РёР»СЊС‚СЂР° РїРѕ Р°РіРµРЅС‚Сѓ.
     /// </summary>
     public async Task<IReadOnlyList<InteractionSummary>> GetAdminInteractionsAsync(CancellationToken cancellationToken = default)
     {
@@ -115,13 +115,13 @@ public class InteractionService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Не удалось получить обращения для администратора");
+            _logger.LogError(ex, "РќРµ СѓРґР°Р»РѕСЃСЊ РїРѕР»СѓС‡РёС‚СЊ РѕР±СЂР°С‰РµРЅРёСЏ РґР»СЏ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР°");
             return Array.Empty<InteractionSummary>();
         }
     }
 
     /// <summary>
-    /// Возвращает справочник статусов для выпадающих списков.
+    /// Р’РѕР·РІСЂР°С‰Р°РµС‚ СЃРїСЂР°РІРѕС‡РЅРёРє СЃС‚Р°С‚СѓСЃРѕРІ РґР»СЏ РІС‹РїР°РґР°СЋС‰РёС… СЃРїРёСЃРєРѕРІ.
     /// </summary>
     public async Task<IReadOnlyList<DataLayer.Models.InteractionStatus>> GetStatusesAsync(CancellationToken cancellationToken = default)
     {
@@ -140,13 +140,13 @@ public class InteractionService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Не удалось загрузить статусы обращений");
+            _logger.LogError(ex, "РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ СЃС‚Р°С‚СѓСЃС‹ РѕР±СЂР°С‰РµРЅРёР№");
             return Array.Empty<DataLayer.Models.InteractionStatus>();
         }
     }
 
     /// <summary>
-    /// Обновляет статус обращения, проверяя права: агент может менять только свои записи.
+    /// РћР±РЅРѕРІР»СЏРµС‚ СЃС‚Р°С‚СѓСЃ РѕР±СЂР°С‰РµРЅРёСЏ, РїСЂРѕРІРµСЂСЏСЏ РїСЂР°РІР°: Р°РіРµРЅС‚ РјРѕР¶РµС‚ РјРµРЅСЏС‚СЊ С‚РѕР»СЊРєРѕ СЃРІРѕРё Р·Р°РїРёСЃРё.
     /// </summary>
     public async Task UpdateStatusAsync(InteractionUpdateRequest request, int userId, bool canUpdateAny, CancellationToken cancellationToken = default)
     {
@@ -159,12 +159,12 @@ public class InteractionService
                 .FirstOrDefaultAsync(i => i.Id == request.InteractionId, cancellationToken);
             if (interaction is null)
             {
-                throw new InvalidOperationException("Взаимодействие не найдено");
+                throw new InvalidOperationException("Р’Р·Р°РёРјРѕРґРµР№СЃС‚РІРёРµ РЅРµ РЅР°Р№РґРµРЅРѕ");
             }
 
             if (!canUpdateAny && interaction.AgentId != userId)
             {
-                throw new InvalidOperationException("Нет прав на изменение записи");
+                throw new InvalidOperationException("РќРµС‚ РїСЂР°РІ РЅР° РёР·РјРµРЅРµРЅРёРµ Р·Р°РїРёСЃРё");
             }
 
             var oldStatusId = interaction.StatusId;
@@ -178,19 +178,19 @@ public class InteractionService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Не удалось обновить взаимодействие {Id}", request.InteractionId);
+            _logger.LogError(ex, "РќРµ СѓРґР°Р»РѕСЃСЊ РѕР±РЅРѕРІРёС‚СЊ РІР·Р°РёРјРѕРґРµР№СЃС‚РІРёРµ {Id}", request.InteractionId);
             throw;
         }
     }
 
     /// <summary>
-    /// Полное обновление обращения со стороны администратора: смена статуса, агента и комментария.
+    /// РџРѕР»РЅРѕРµ РѕР±РЅРѕРІР»РµРЅРёРµ РѕР±СЂР°С‰РµРЅРёСЏ СЃРѕ СЃС‚РѕСЂРѕРЅС‹ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР°: СЃРјРµРЅР° СЃС‚Р°С‚СѓСЃР°, Р°РіРµРЅС‚Р° Рё РєРѕРјРјРµРЅС‚Р°СЂРёСЏ.
     /// </summary>
     public async Task UpdateByAdminAsync(AdminInteractionUpdateRequest request, CancellationToken cancellationToken = default)
     {
         if (request.AgentId <= 0)
         {
-            throw new InvalidOperationException("Нужно выбрать риелтора для обращения");
+            throw new InvalidOperationException("РќСѓР¶РЅРѕ РІС‹Р±СЂР°С‚СЊ СЂРёРµР»С‚РѕСЂР° РґР»СЏ РѕР±СЂР°С‰РµРЅРёСЏ");
         }
 
         try
@@ -202,7 +202,7 @@ public class InteractionService
                 .FirstOrDefaultAsync(i => i.Id == request.InteractionId, cancellationToken);
             if (interaction is null)
             {
-                throw new InvalidOperationException("Взаимодействие не найдено");
+                throw new InvalidOperationException("Р’Р·Р°РёРјРѕРґРµР№СЃС‚РІРёРµ РЅРµ РЅР°Р№РґРµРЅРѕ");
             }
 
             var oldStatusId = interaction.StatusId;
@@ -217,18 +217,18 @@ public class InteractionService
             await NotifyInteractionChangedAsync(interaction, null, oldStatusId, request.StatusId, cancellationToken);
             if (oldAgentId != request.AgentId)
             {
-                await _notificationService.CreateAsync(request.AgentId, "Назначена заявка", $"Вам назначена заявка #{interaction.Id} по объекту #{interaction.RealEstateId}.", $"/chat?realEstateId={interaction.RealEstateId}&peerId={interaction.ClientId}", cancellationToken);
+                await _notificationService.CreateAsync(request.AgentId, "РќР°Р·РЅР°С‡РµРЅР° Р·Р°СЏРІРєР°", $"Р’Р°Рј РЅР°Р·РЅР°С‡РµРЅР° Р·Р°СЏРІРєР° #{interaction.Id} РїРѕ РѕР±СЉРµРєС‚Сѓ #{interaction.RealEstateId}.", $"/chat?realEstateId={interaction.RealEstateId}&peerId={interaction.ClientId}", cancellationToken);
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Не удалось обновить взаимодействие {Id} администратором", request.InteractionId);
+            _logger.LogError(ex, "РќРµ СѓРґР°Р»РѕСЃСЊ РѕР±РЅРѕРІРёС‚СЊ РІР·Р°РёРјРѕРґРµР№СЃС‚РІРёРµ {Id} Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂРѕРј", request.InteractionId);
             throw;
         }
     }
 
     /// <summary>
-    /// Создаёт новое обращение и выставляет первую стадию статуса.
+    /// РЎРѕР·РґР°С‘С‚ РЅРѕРІРѕРµ РѕР±СЂР°С‰РµРЅРёРµ Рё РІС‹СЃС‚Р°РІР»СЏРµС‚ РїРµСЂРІСѓСЋ СЃС‚Р°РґРёСЋ СЃС‚Р°С‚СѓСЃР°.
     /// </summary>
     public async Task<int> CreateInteractionAsync(int clientId, int agentId, int realEstateId, string? notes, CancellationToken cancellationToken = default)
     {
@@ -243,10 +243,12 @@ public class InteractionService
                 throw new InvalidOperationException("Заявку нельзя оставить: объект недоступен.");
             }
 
-            var exists = await context.Interactions.AnyAsync(
-                i => i.ClientId == clientId && i.RealEstateId == realEstateId && i.DeletedAt == null,
-                cancellationToken);
-            if (exists)
+            var existing = await context.Interactions
+                .Where(i => i.ClientId == clientId && i.RealEstateId == realEstateId)
+                .OrderByDescending(i => i.UpdatedAt)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (existing is not null && existing.DeletedAt == null)
             {
                 throw new InvalidOperationException("Заявка по этому объекту уже создана.");
             }
@@ -256,22 +258,41 @@ public class InteractionService
                 .Select(s => s.Id)
                 .FirstAsync(cancellationToken);
 
-            var entity = new DataLayer.Models.Interaction
-            {
-                AgentId = agentId,
-                ClientId = clientId,
-                RealEstateId = realEstateId,
-                StatusId = statusId,
-                ContactedAt = _timeProvider.GetUtcNow().UtcDateTime,
-                UpdatedAt = _timeProvider.GetUtcNow().UtcDateTime,
-                Notes = notes
-            };
+            var now = _timeProvider.GetUtcNow().UtcDateTime;
+            DataLayer.Models.Interaction entity;
+            var auditAction = "create";
 
-            context.Interactions.Add(entity);
+            if (existing is not null)
+            {
+                existing.AgentId = agentId;
+                existing.StatusId = statusId;
+                existing.DeletedAt = null;
+                existing.ContactedAt = now;
+                existing.UpdatedAt = now;
+                existing.Notes = notes;
+                entity = existing;
+                auditAction = "restore";
+            }
+            else
+            {
+                entity = new DataLayer.Models.Interaction
+                {
+                    AgentId = agentId,
+                    ClientId = clientId,
+                    RealEstateId = realEstateId,
+                    StatusId = statusId,
+                    ContactedAt = now,
+                    UpdatedAt = now,
+                    Notes = notes
+                };
+
+                context.Interactions.Add(entity);
+            }
+
             await context.SaveChangesAsync(cancellationToken);
             await _notificationService.CreateAsync(agentId, "Новая заявка", $"Клиент оставил заявку по объекту #{realEstateId}.", $"/chat?realEstateId={realEstateId}&peerId={clientId}", cancellationToken);
             await _notificationService.CreateAsync(clientId, "Заявка создана", $"Ваша заявка по объекту #{realEstateId} отправлена риелтору.", $"/chat?realEstateId={realEstateId}&peerId={agentId}", cancellationToken);
-            await _auditLogService.WriteAsync("Interaction", "create", entity.Id, clientId, null, $"Создана заявка по объекту #{realEstateId}", cancellationToken);
+            await _auditLogService.WriteAsync("Interaction", auditAction, entity.Id, clientId, null, $"Создана заявка по объекту #{realEstateId}", cancellationToken);
             return entity.Id;
         }
         catch (Exception ex)
@@ -315,8 +336,8 @@ public class InteractionService
 
         string? targetCode = statusName switch
         {
-            var name when name?.Contains("заверш", StringComparison.OrdinalIgnoreCase) == true => "sold",
-            var name when name?.Contains("работ", StringComparison.OrdinalIgnoreCase) == true => "reserved",
+            var name when name?.Contains("Р·Р°РІРµСЂС€", StringComparison.OrdinalIgnoreCase) == true => "sold",
+            var name when name?.Contains("СЂР°Р±РѕС‚", StringComparison.OrdinalIgnoreCase) == true => "reserved",
             _ => null
         };
 
@@ -375,8 +396,8 @@ public class InteractionService
 
         if (oldStatusId != newStatusId)
         {
-            await _notificationService.CreateAsync(interaction.ClientId, "Статус заявки изменён", $"Заявка #{interaction.Id} обновлена.", $"/chat?realEstateId={interaction.RealEstateId}&peerId={interaction.AgentId}", cancellationToken);
-            await _notificationService.CreateAsync(interaction.AgentId, "Статус заявки изменён", $"Заявка #{interaction.Id} обновлена.", $"/chat?realEstateId={interaction.RealEstateId}&peerId={interaction.ClientId}", cancellationToken);
+            await _notificationService.CreateAsync(interaction.ClientId, "РЎС‚Р°С‚СѓСЃ Р·Р°СЏРІРєРё РёР·РјРµРЅС‘РЅ", $"Р—Р°СЏРІРєР° #{interaction.Id} РѕР±РЅРѕРІР»РµРЅР°.", $"/chat?realEstateId={interaction.RealEstateId}&peerId={interaction.AgentId}", cancellationToken);
+            await _notificationService.CreateAsync(interaction.AgentId, "РЎС‚Р°С‚СѓСЃ Р·Р°СЏРІРєРё РёР·РјРµРЅС‘РЅ", $"Р—Р°СЏРІРєР° #{interaction.Id} РѕР±РЅРѕРІР»РµРЅР°.", $"/chat?realEstateId={interaction.RealEstateId}&peerId={interaction.ClientId}", cancellationToken);
         }
     }
 
@@ -422,7 +443,7 @@ public class InteractionService
             .FirstOrDefaultAsync(i => i.ClientId == clientId && i.RealEstateId == realEstateId && i.DeletedAt == null, cancellationToken);
         if (interaction is null)
         {
-            throw new InvalidOperationException("Заявка не найдена.");
+            throw new InvalidOperationException("Р—Р°СЏРІРєР° РЅРµ РЅР°Р№РґРµРЅР°.");
         }
 
         interaction.DeletedAt = _timeProvider.GetUtcNow().UtcDateTime;
@@ -437,19 +458,19 @@ public class InteractionService
             .FirstOrDefaultAsync(i => i.Id == interactionId && i.ClientId == clientId && i.DeletedAt == null, cancellationToken);
         if (interaction is null)
         {
-            throw new InvalidOperationException("Заявка не найдена.");
+            throw new InvalidOperationException("Р—Р°СЏРІРєР° РЅРµ РЅР°Р№РґРµРЅР°.");
         }
 
         interaction.DeletedAt = _timeProvider.GetUtcNow().UtcDateTime;
         interaction.UpdatedAt = _timeProvider.GetUtcNow().UtcDateTime;
         interaction.Notes = string.IsNullOrWhiteSpace(interaction.Notes)
-            ? "Заявка отменена клиентом."
-            : $"{interaction.Notes} | Заявка отменена клиентом.";
+            ? "Р—Р°СЏРІРєР° РѕС‚РјРµРЅРµРЅР° РєР»РёРµРЅС‚РѕРј."
+            : $"{interaction.Notes} | Р—Р°СЏРІРєР° РѕС‚РјРµРЅРµРЅР° РєР»РёРµРЅС‚РѕРј.";
         await context.SaveChangesAsync(cancellationToken);
     }
 
     /// <summary>
-    /// Маппинг сущности EF Core в модель для отображения на экране.
+    /// РњР°РїРїРёРЅРі СЃСѓС‰РЅРѕСЃС‚Рё EF Core РІ РјРѕРґРµР»СЊ РґР»СЏ РѕС‚РѕР±СЂР°Р¶РµРЅРёСЏ РЅР° СЌРєСЂР°РЅРµ.
     /// </summary>
     private static InteractionSummary Map(DataLayer.Models.Interaction interaction)
     {
@@ -474,14 +495,14 @@ public class InteractionService
     }
 
     /// <summary>
-    /// Отдаёт обращения конкретного клиента, включая связанные сущности для вывода в UI.
+    /// РћС‚РґР°С‘С‚ РѕР±СЂР°С‰РµРЅРёСЏ РєРѕРЅРєСЂРµС‚РЅРѕРіРѕ РєР»РёРµРЅС‚Р°, РІРєР»СЋС‡Р°СЏ СЃРІСЏР·Р°РЅРЅС‹Рµ СЃСѓС‰РЅРѕСЃС‚Рё РґР»СЏ РІС‹РІРѕРґР° РІ UI.
     /// </summary>
     public async Task<IReadOnlyList<InteractionSummary>> GetClientInteractionsAsync(
     int clientId,
     CancellationToken cancellationToken = default)
     {
         if (clientId <= 0)
-            throw new InvalidOperationException("Некорректный пользователь.");
+            throw new InvalidOperationException("РќРµРєРѕСЂСЂРµРєС‚РЅС‹Р№ РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ.");
 
         try
         {
@@ -507,3 +528,4 @@ public class InteractionService
         }
     }
 }
+

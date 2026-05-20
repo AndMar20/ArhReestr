@@ -1,4 +1,4 @@
-@page "/real-estate/{Id:int}"
+﻿@page "/real-estate/{Id:int}"
 @using DataLayer
 @using DataLayer.Models
 @using global::System.Globalization
@@ -48,14 +48,23 @@ else
                 <div class="price">@item.Price.ToString("N0") ₽</div>
                 <div class="meta-line" style="justify-content: flex-end;">
                     <span class="tag-pill">@item.Rooms-комн.</span>
-                    <span class="tag-pill">Балкон @(item.HasBalcony ? "есть" : "нет")</span>
-                    <span class="tag-pill">Парковка @(item.House?.HasParking == true ? "есть" : "нет")</span>
-                    <span class="tag-pill">Лифт @(item.House?.HasElevator == true ? "есть" : "нет")</span>
+                    @if (item.HasBalcony)
+                    {
+                        <span class="tag-pill">Балкон есть</span>
+                    }
+                    @if (item.House?.HasParking == true)
+                    {
+                        <span class="tag-pill">Парковка есть</span>
+                    }
+                    @if (item.House?.HasElevator == true)
+                    {
+                        <span class="tag-pill">Лифт есть</span>
+                    }
                 </div>
                 <div class="card-actions" style="margin-top: 0.5rem;">
                     @if (canRequestInteraction)
                     {
-                        <button @onclick="ToggleInteractionAsync" disabled="@isContacting" class="@(activeInteractionId.HasValue ? "danger" : string.Empty)">
+                        <button @onclick="ToggleInteractionAsync" disabled="@isContacting" class="primary @(activeInteractionId.HasValue ? "danger" : string.Empty)">
                             @(isContacting ? "Обработка..." : activeInteractionId.HasValue ? "Отменить заявку" : "Оставить заявку")
                         </button>
                     }
@@ -110,15 +119,7 @@ else
         <div class="panel">
             <div class="section-header">
                 <h2>Характеристики</h2>
-                <span class="small-text">Адрес и инфраструктура</span>
             </div>
-            @if (!string.IsNullOrWhiteSpace(item.Description))
-            {
-                <div class="description-block">
-                    <h3>Описание</h3>
-                    <p>@item.Description</p>
-                </div>
-            }
             <ul class="properties">
                 <li><span>Район</span><strong>@item.House?.District?.Name</strong></li>
                 <li><span>Адрес</span><strong>@address</strong></li>
@@ -129,6 +130,13 @@ else
                 <li><span>Лифт</span><strong>@(item.House?.HasElevator == true ? "Есть" : "Нет")</strong></li>
                 <li><span>Балкон</span><strong>@(item.HasBalcony ? "Есть" : "Нет")</strong></li>
             </ul>
+            @if (!string.IsNullOrWhiteSpace(item.Description))
+            {
+                <div class="description-block">
+                    <h3>Описание</h3>
+                    <p>@item.Description</p>
+                </div>
+            }
         </div>
 
         <div class="panel">
@@ -550,3 +558,7 @@ else
         }
     }
 }
+
+
+
+
