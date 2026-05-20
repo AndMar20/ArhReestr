@@ -1,3 +1,4 @@
+﻿using System.Data;
 using System.Data.Common;
 using DataLayer;
 using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
@@ -13,7 +14,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.AspNetCore.Antiforgery;
 
-// Точка входа Blazor Server: настраиваем DI, аутентификацию и минимальные API.
+// РўРѕС‡РєР° РІС…РѕРґР° Blazor Server: РЅР°СЃС‚СЂР°РёРІР°РµРј DI, Р°СѓС‚РµРЅС‚РёС„РёРєР°С†РёСЋ Рё РјРёРЅРёРјР°Р»СЊРЅС‹Рµ API.
 var crashLogPath = Path.Combine(AppContext.BaseDirectory, "webapp-crash.log");
 void WriteCrashLog(string source, Exception exception)
 {
@@ -44,12 +45,12 @@ TaskScheduler.UnobservedTaskException += (_, args) =>
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Получаем строку подключения к MySQL из конфигурации; если её нет, используем InMemory, чтобы приложение могло стартовать без БД.
+// РџРѕР»СѓС‡Р°РµРј СЃС‚СЂРѕРєСѓ РїРѕРґРєР»СЋС‡РµРЅРёСЏ Рє MySQL РёР· РєРѕРЅС„РёРіСѓСЂР°С†РёРё; РµСЃР»Рё РµС‘ РЅРµС‚, РёСЃРїРѕР»СЊР·СѓРµРј InMemory, С‡С‚РѕР±С‹ РїСЂРёР»РѕР¶РµРЅРёРµ РјРѕРіР»Рѕ СЃС‚Р°СЂС‚РѕРІР°С‚СЊ Р±РµР· Р‘Р”.
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 var useInMemory = string.IsNullOrWhiteSpace(connectionString);
 
-// Регистрируем контекст EF Core с провайдером MySQL или InMemory.
-// Используем фабрику, чтобы каждый запрос получал свой экземпляр контекста.
+// Р РµРіРёСЃС‚СЂРёСЂСѓРµРј РєРѕРЅС‚РµРєСЃС‚ EF Core СЃ РїСЂРѕРІР°Р№РґРµСЂРѕРј MySQL РёР»Рё InMemory.
+// РСЃРїРѕР»СЊР·СѓРµРј С„Р°Р±СЂРёРєСѓ, С‡С‚РѕР±С‹ РєР°Р¶РґС‹Р№ Р·Р°РїСЂРѕСЃ РїРѕР»СѓС‡Р°Р» СЃРІРѕР№ СЌРєР·РµРјРїР»СЏСЂ РєРѕРЅС‚РµРєСЃС‚Р°.
 builder.Services.AddDbContextFactory<ArhReestrContext>(options =>
 {
     if (useInMemory)
@@ -72,7 +73,7 @@ builder.Services.AddScoped<ProtectedLocalStorage>();
 builder.Services.AddScoped<IUserStore<ApplicationUser>, ArhUserStore>();
 builder.Services.AddScoped<IRoleStore<ApplicationRole>, ArhRoleStore>();
 
-// Настраиваем Identity с минимальными требованиями к паролю и уникальностью почты.
+// РќР°СЃС‚СЂР°РёРІР°РµРј Identity СЃ РјРёРЅРёРјР°Р»СЊРЅС‹РјРё С‚СЂРµР±РѕРІР°РЅРёСЏРјРё Рє РїР°СЂРѕР»СЋ Рё СѓРЅРёРєР°Р»СЊРЅРѕСЃС‚СЊСЋ РїРѕС‡С‚С‹.
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
     {
         options.Password.RequireDigit = true;
@@ -103,7 +104,7 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.SlidingExpiration = true;
 });
 
-// Политики авторизации: роль агента и администратора.
+// РџРѕР»РёС‚РёРєРё Р°РІС‚РѕСЂРёР·Р°С†РёРё: СЂРѕР»СЊ Р°РіРµРЅС‚Р° Рё Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР°.
 builder.Services.AddAuthorizationBuilder()
     .AddPolicy("RequireAgent", policy => policy.RequireRole("agent", "admin"))
     .AddPolicy("RequireClient", policy => policy.RequireRole("client", "admin"))
@@ -137,7 +138,7 @@ builder.Services.AddRazorComponents()
 
 var app = builder.Build();
 
-// При наличии реальной строки подключения проверяем доступность БД, но не падаем при использовании InMemory.
+// РџСЂРё РЅР°Р»РёС‡РёРё СЂРµР°Р»СЊРЅРѕР№ СЃС‚СЂРѕРєРё РїРѕРґРєР»СЋС‡РµРЅРёСЏ РїСЂРѕРІРµСЂСЏРµРј РґРѕСЃС‚СѓРїРЅРѕСЃС‚СЊ Р‘Р”, РЅРѕ РЅРµ РїР°РґР°РµРј РїСЂРё РёСЃРїРѕР»СЊР·РѕРІР°РЅРёРё InMemory.
 if (!useInMemory)
 {
     using var scope = app.Services.CreateScope();
@@ -147,13 +148,24 @@ if (!useInMemory)
 
     try
     {
-        if (!db.Database.CanConnect())
+        const int maxAttempts = 12;
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
         {
-            throw new InvalidOperationException(DatabaseErrorMessages.ConnectionFailed);
-        }
+            if (db.Database.CanConnect())
+            {
+                await EnsureNotificationLinkColumnAsync(db);
+                dbHealthState.MarkAvailable();
+                break;
+            }
 
-        await EnsureNotificationLinkColumnAsync(db);
-        dbHealthState.MarkAvailable();
+            if (attempt == maxAttempts)
+            {
+                throw new InvalidOperationException(DatabaseErrorMessages.ConnectionFailed);
+            }
+
+            logger.LogWarning("Р‘Р°Р·Р° РґР°РЅРЅС‹С… РїРѕРєР° РЅРµРґРѕСЃС‚СѓРїРЅР°, РїРѕРІС‚РѕСЂРЅР°СЏ РїСЂРѕРІРµСЂРєР° {Attempt}/{MaxAttempts}", attempt, maxAttempts);
+            await Task.Delay(TimeSpan.FromSeconds(5));
+        }
     }
     catch (DbException ex)
     {
@@ -180,16 +192,45 @@ static async Task EnsureNotificationLinkColumnAsync(ArhReestrContext db)
         return;
     }
 
+    var connection = db.Database.GetDbConnection();
+    var shouldClose = connection.State != ConnectionState.Open;
+
+    if (shouldClose)
+    {
+        await connection.OpenAsync();
+    }
+
     try
     {
+        await using var checkCommand = connection.CreateCommand();
+        checkCommand.CommandText = """
+            SELECT COUNT(*)
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'Notifications'
+              AND COLUMN_NAME = 'linkUrl';
+            """;
+
+        var existingColumns = Convert.ToInt32(await checkCommand.ExecuteScalarAsync());
+        if (existingColumns > 0)
+        {
+            return;
+        }
+
         await db.Database.ExecuteSqlRawAsync("ALTER TABLE `Notifications` ADD COLUMN `linkUrl` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL AFTER `message`;");
     }
     catch
     {
-        // Column already exists or the DB user cannot alter schema; runtime will surface real DB errors later.
+        // Optional compatibility column; real DB problems are handled by the startup health check.
+    }
+    finally
+    {
+        if (shouldClose)
+        {
+            await connection.CloseAsync();
+        }
     }
 }
-
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
@@ -211,7 +252,7 @@ app.Use(async (context, next) =>
     {
         var logger = context.RequestServices.GetRequiredService<ILoggerFactory>()
             .CreateLogger("Antiforgery");
-        logger.LogWarning(ex, "Антифрод токен не прошёл проверку для {Path}", context.Request.Path);
+        logger.LogWarning(ex, "РђРЅС‚РёС„СЂРѕРґ С‚РѕРєРµРЅ РЅРµ РїСЂРѕС€С‘Р» РїСЂРѕРІРµСЂРєСѓ РґР»СЏ {Path}", context.Request.Path);
 
         if (!context.Response.HasStarted)
         {
@@ -265,7 +306,7 @@ app.MapPost("/login", async ([FromForm] LoginInputModel request,
     })
     .AllowAnonymous();
 
-// Разлогиниваем пользователя через отдельный HTTP-запрос, чтобы избежать подвисаний в SignalR-соединении Blazor.
+// Р Р°Р·Р»РѕРіРёРЅРёРІР°РµРј РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ С‡РµСЂРµР· РѕС‚РґРµР»СЊРЅС‹Р№ HTTP-Р·Р°РїСЂРѕСЃ, С‡С‚РѕР±С‹ РёР·Р±РµР¶Р°С‚СЊ РїРѕРґРІРёСЃР°РЅРёР№ РІ SignalR-СЃРѕРµРґРёРЅРµРЅРёРё Blazor.
 app.MapPost("/logout", async ([FromQuery] string? returnUrl,
         SignInManager<ApplicationUser> signInManager) =>
     {
@@ -286,3 +327,4 @@ app.MapGet("/reports/admin.xlsx", async ([FromQuery] string? type, [FromQuery] D
     .RequireAuthorization("RequireAdmin");
 
 app.Run();
+

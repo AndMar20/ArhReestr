@@ -165,6 +165,11 @@ nav a.brand.active {
 }
 
 .link-button, button, .primary, .tag-pill.action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40px;
+    line-height: 1.2;
     background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
     border: none;
     border-radius: 14px;

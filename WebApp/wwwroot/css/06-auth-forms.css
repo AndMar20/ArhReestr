@@ -130,6 +130,24 @@
     font-weight: 600;
 }
 
+
+.auth-footer-links {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.7rem;
+    margin-top: 1.2rem;
+    flex-wrap: wrap;
+}
+
+.auth-footer-links .footer-link {
+    margin-top: 0;
+}
+
+.footer-separator {
+    color: #94a3b8;
+    font-weight: 700;
+}
 .footer-link {
     margin-top: 1.2rem;
     color: #0c6ac9;

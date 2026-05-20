@@ -1,4 +1,4 @@
-@inherits LayoutComponentBase
+﻿@inherits LayoutComponentBase
 @implements IDisposable
 @using Microsoft.AspNetCore.Components.Routing
 @using global::System.Security.Claims
@@ -8,19 +8,19 @@
 @inject NotificationService NotificationService
 @inject ChatService ChatService
 
-<PageTitle>АрхРеестр</PageTitle>
+<PageTitle>РђСЂС…Р РµРµСЃС‚СЂ</PageTitle>
 
 <div class="page">
     <header class="top-bar">
         <div class="container nav-inner">
             <div class="nav-header">
                 <NavLink class="brand" href="/search" Match="NavLinkMatch.All" @onclick="CloseMenu">
-                    <img class="brand-logo" height="50" width="100" src="Images/Logo/app-logo.png" alt="Логотип АрхРеестр" />
+                    <img class="brand-logo" height="50" width="100" src="Images/Logo/app-logo.png" alt="Р›РѕРіРѕС‚РёРї РђСЂС…Р РµРµСЃС‚СЂ" />
                 </NavLink>
                 <button
                     type="button"
                     class="nav-toggle"
-                    aria-label="Открыть меню"
+                    aria-label="РћС‚РєСЂС‹С‚СЊ РјРµРЅСЋ"
                     aria-controls="main-nav"
                     aria-expanded="@isMenuOpen"
                     @onclick="ToggleMenu">
@@ -31,27 +31,27 @@
             </div>
             <div id="main-nav" class="@NavMenuClass">
                 <nav>
-                    <NavLink href="/" class="@CatalogLinkClass" Match="NavLinkMatch.All" @onclick="CloseMenu">Каталог объектов</NavLink>
-                    <NavLink href="/favorites" Match="NavLinkMatch.Prefix" @onclick="CloseMenu">Избранное</NavLink>
+                    <NavLink href="/" class="@CatalogLinkClass" Match="NavLinkMatch.All" @onclick="CloseMenu">РљР°С‚Р°Р»РѕРі РѕР±СЉРµРєС‚РѕРІ</NavLink>
+                    <NavLink href="/favorites" Match="NavLinkMatch.Prefix" @onclick="CloseMenu">РР·Р±СЂР°РЅРЅРѕРµ</NavLink>
                     <AuthorizeView Roles="admin">
                         <Authorized>
-                            <NavLink href="/admin" Match="NavLinkMatch.Prefix" @onclick="CloseMenu">Кабинет администратора</NavLink>
+                            <NavLink href="/admin" Match="NavLinkMatch.Prefix" @onclick="CloseMenu">РљР°Р±РёРЅРµС‚ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР°</NavLink>
                         </Authorized>
                     </AuthorizeView>
                     <AuthorizeView Roles="agent">
                         <Authorized>
-                            <NavLink href="/realtor" Match="NavLinkMatch.Prefix" @onclick="CloseMenu">Кабинет риелтора</NavLink>
+                            <NavLink href="/realtor" Match="NavLinkMatch.Prefix" @onclick="CloseMenu">РљР°Р±РёРЅРµС‚ СЂРёРµР»С‚РѕСЂР°</NavLink>
                         </Authorized>
                     </AuthorizeView>
                     <AuthorizeView Roles="client">
                         <Authorized>
-                            <NavLink href="/client" class="nav-link" Match="NavLinkMatch.Prefix" @onclick="CloseMenu">Кабинет клиента</NavLink>
+                            <NavLink href="/client" class="nav-link" Match="NavLinkMatch.Prefix" @onclick="CloseMenu">РљР°Р±РёРЅРµС‚ РєР»РёРµРЅС‚Р°</NavLink>
                         </Authorized>
                     </AuthorizeView>
                     <AuthorizeView Roles="agent,client">
                         <Authorized>
                             <NavLink href="/chat" Match="NavLinkMatch.Prefix" @onclick="CloseMenu">
-                                Чат
+                                Р§Р°С‚
                                 @if (UnreadChatCount > 0)
                                 {
                                     <span class="nav-counter">@UnreadChatCount</span>
@@ -62,7 +62,7 @@
                     <AuthorizeView>
                         <Authorized>
                             <NavLink href="/notifications" Match="NavLinkMatch.Prefix" @onclick="CloseMenu">
-                                Уведомления
+                                РЈРІРµРґРѕРјР»РµРЅРёСЏ
                                 @if (UnreadNotificationCount > 0)
                                 {
                                     <span class="nav-counter">@UnreadNotificationCount</span>
@@ -80,7 +80,7 @@
             @if (!DatabaseHealthState.IsAvailable && !string.IsNullOrWhiteSpace(DatabaseHealthState.Message))
             {
                 <div class="alert error" style="margin-top:1rem;">
-                    База данных временно недоступна: @DatabaseHealthState.Message
+                    Р‘Р°Р·Р° РґР°РЅРЅС‹С… РІСЂРµРјРµРЅРЅРѕ РЅРµРґРѕСЃС‚СѓРїРЅР°: @DatabaseHealthState.Message
                 </div>
             }
             @Body
@@ -89,8 +89,8 @@
 </div>
 
 <div id="blazor-error-ui">
-    Произошла ошибка. <a href="" class="reload">Перезагрузить</a>
-    <a class="dismiss">🗙</a>
+    Возникла непредвиденная ошибка. <a href="" class="reload">Обновить страницу</a>
+    <button type="button" class="dismiss" aria-label="Закрыть">×</button>
 </div>
 
 @code {
@@ -171,3 +171,4 @@
         NavigationManager.LocationChanged -= OnLocationChanged;
     }
 }
+

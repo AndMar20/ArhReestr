@@ -303,13 +303,15 @@ public class ReportService
             query = query.Where(r => r.CreatedAt < toDate.Value);
         }
 
-        var rows = await query
-            .GroupBy(r => r.House!.District!.Name)
-            .Select(g => new AdminReportRow(g.Key ?? "Без района", g.Count()))
-            .OrderByDescending(r => r.Value)
+        var districtNames = await query
+            .Select(r => r.House != null && r.House.District != null ? r.House.District.Name : null)
             .ToListAsync(cancellationToken);
 
-        return rows;
+        return districtNames
+            .GroupBy(name => string.IsNullOrWhiteSpace(name) ? "Без района" : name)
+            .Select(g => new AdminReportRow(g.Key, g.Count()))
+            .OrderByDescending(r => r.Value)
+            .ToList();
     }
 
     private async Task<IReadOnlyList<AdminReportRow>> BuildAverageDealTimeRowsAsync(DateTime? from, DateTime? to, CancellationToken cancellationToken)

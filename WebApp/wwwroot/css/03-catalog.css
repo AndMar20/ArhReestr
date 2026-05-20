@@ -327,7 +327,13 @@ input, select, textarea {
     }
 
     .card .card-actions.no-request-action {
-        grid-template-columns: 42px minmax(0, 1fr);
+        grid-template-columns: 42px minmax(130px, 1fr);
+        align-items: stretch;
+    }
+
+    .card .card-actions.no-request-action .ghost {
+        justify-self: stretch;
+        min-width: 130px;
     }
 }
 

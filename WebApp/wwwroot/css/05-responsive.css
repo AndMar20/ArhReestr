@@ -534,3 +534,430 @@
     }
 }
 
+
+/* Mobile hardening pass: shared pages should compress instead of overflowing. */
+@media (max-width: 900px) {
+    .admin-tabs {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        padding-bottom: 0.25rem;
+        scrollbar-width: thin;
+    }
+
+    .admin-tabs a,
+    .admin-tabs button {
+        flex: 0 0 auto;
+        white-space: nowrap;
+    }
+
+    .hero-header.section-header,
+    .section-header.hero-header {
+        align-items: stretch;
+    }
+
+    .hero-actions {
+        justify-content: flex-start;
+    }
+
+    .report-filter-bar,
+    .logs-filter-bar,
+    .references-filter-bar {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .report-download,
+    .logs-filter-bar .filter-reset-button,
+    .references-filter-bar .filter-reset-button {
+        width: 100%;
+    }
+}
+
+@media (max-width: 720px) {
+    .top-bar {
+        position: sticky;
+    }
+
+    .brand-logo {
+        height: 42px;
+        max-width: 110px;
+        object-fit: contain;
+    }
+
+    .nav-menu {
+        align-items: stretch;
+    }
+
+    .top-bar a,
+    .top-bar button,
+    .login-actions .link-button,
+    .authorize-block .link-button {
+        min-height: 40px;
+    }
+
+    .login-actions,
+    .authorize-block {
+        width: 100%;
+        align-self: stretch;
+        justify-content: stretch;
+    }
+
+    .login-actions a,
+    .authorize-block a,
+    .authorize-block form,
+    .authorize-block button,
+    .logout-form,
+    .logout-form button {
+        width: 100%;
+    }
+
+    .hero-card,
+    .panel,
+    .s-card,
+    .table-wrapper,
+    .info-card {
+        border-radius: 14px;
+    }
+
+    .hero-actions .primary,
+    .hero-actions button.primary,
+    .hero-actions a.primary,
+    .hero-actions .ghost,
+    .hero-actions button.ghost,
+    .hero-actions a.ghost {
+        min-width: 0;
+        width: 100%;
+    }
+
+    .segmented-control {
+        overflow-x: auto;
+        justify-content: flex-start;
+    }
+
+    .segment {
+        flex: 1 0 auto;
+        white-space: nowrap;
+        padding-inline: 0.7rem;
+    }
+
+    .catalog-filter-bar,
+    .admin-filter-bar {
+        padding: 0.65rem;
+    }
+
+    .catalog-filter-bar label,
+    .admin-filter-bar label,
+    .report-period-range label {
+        gap: 0.3rem;
+    }
+
+    input,
+    select,
+    textarea {
+        max-width: 100%;
+        font-size: 16px;
+    }
+
+    .cards,
+    .favorites-cards {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.7rem;
+        justify-content: stretch;
+    }
+
+    .card {
+        min-width: 0;
+    }
+
+    .card img {
+        height: clamp(108px, 30vw, 150px);
+    }
+
+    .card .meta-line {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .card h2 {
+        min-height: 2.35rem;
+    }
+
+    .tags {
+        min-height: 1.65rem;
+    }
+
+    .card-actions {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 34px;
+        align-items: stretch;
+    }
+
+    .card-actions .ghost,
+    .card-actions button:not(.icon-button) {
+        width: 100%;
+        min-width: 0;
+        min-height: 34px;
+        padding: 0.45rem 0.5rem;
+        font-size: 0.76rem;
+        line-height: 1.15;
+    }
+
+    .card-actions .ghost {
+        grid-column: 1 / -1;
+    }
+
+    .card-actions .icon-button {
+        width: 34px;
+        height: 34px;
+        min-width: 34px;
+        min-height: 34px;
+        justify-self: end;
+    }
+
+    .detail-hero-actions,
+    .detail-hero-actions .card-actions {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .detail-hero-actions .card-actions {
+        display: flex;
+        align-items: stretch;
+    }
+
+    .detail-hero-actions .card-actions .primary,
+    .detail-hero-actions .card-actions .ghost {
+        flex: 1 1 180px;
+    }
+
+    .detail-hero-actions .card-actions .icon-button {
+        flex: 0 0 42px;
+        width: 42px;
+        height: 42px;
+    }
+
+    .detail-grid .section-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .detail-grid .section-header .small-text {
+        max-width: none;
+        text-align: left;
+    }
+
+    .photo-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .photo-grid .photo-thumb img {
+        height: clamp(120px, 36vw, 170px);
+    }
+
+    .properties li {
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+
+    .properties span {
+        flex-basis: auto;
+    }
+
+    .properties strong {
+        overflow-wrap: anywhere;
+    }
+
+    .stacked-table {
+        display: block;
+        width: 100%;
+    }
+
+    .stacked-table tbody {
+        display: grid;
+        gap: 0.85rem;
+    }
+
+    .stacked-table tr {
+        width: 100%;
+        overflow: hidden;
+    }
+
+    .stacked-table td {
+        align-items: flex-start;
+        min-width: 0;
+    }
+
+    .stacked-table td::before {
+        flex: 0 0 min(42%, 150px);
+        min-width: 95px;
+    }
+
+    .stacked-table td > *:not(:first-child),
+    .stacked-table td > div,
+    .stacked-table td > span,
+    .stacked-table td > a {
+        min-width: 0;
+    }
+
+    .stacked-table .table-actions,
+    .stacked-table .client-actions,
+    .stacked-table .user-management-actions {
+        display: grid;
+        grid-template-columns: 1fr;
+        min-width: 0;
+        width: 100%;
+    }
+
+    .stacked-table .table-actions a,
+    .stacked-table .table-actions button,
+    .stacked-table .client-actions a,
+    .stacked-table .client-actions button,
+    .user-management-actions button,
+    .user-management-actions .compact-password-input {
+        width: 100%;
+        min-width: 0;
+        max-width: none;
+    }
+
+    .reference-row,
+    .notification-item,
+    .report-list li {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .reference-row button,
+    .notification-item a,
+    .notification-item button {
+        width: 100%;
+    }
+
+    .entity-filter-summary {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .chat-object-link {
+        max-width: 100%;
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .chat-status-panel {
+        align-items: stretch;
+    }
+
+    .chat-status-panel select,
+    .chat-status-panel button {
+        width: 100%;
+    }
+}
+
+@media (max-width: 540px) {
+    .cards,
+    .favorites-cards {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .card-content {
+        gap: 0.4rem;
+    }
+
+    .card h2 {
+        font-size: 0.84rem;
+    }
+
+    .card .price {
+        font-size: 0.92rem;
+    }
+
+    .card .meta-line,
+    .card .small-text {
+        font-size: 0.72rem;
+    }
+
+    .tag-pill {
+        font-size: 0.68rem;
+    }
+
+    .admin-tabs {
+        margin-left: -1rem;
+        margin-right: -1rem;
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+
+    .stacked-table td {
+        display: grid;
+        grid-template-columns: minmax(88px, 0.45fr) minmax(0, 1fr);
+        gap: 0.5rem;
+    }
+
+    .stacked-table td::before {
+        min-width: 0;
+        margin: 0;
+    }
+
+    .stacked-table td.table-actions,
+    .stacked-table td.client-actions,
+    .stacked-table td.user-management-actions {
+        grid-template-columns: 1fr;
+    }
+
+    .chat-bubble {
+        max-width: 94%;
+    }
+
+    .chat-layout .form-stack {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 420px) {
+    .container {
+        padding-inline: 0.7rem;
+    }
+
+    .cards,
+    .favorites-cards {
+        gap: 0.55rem;
+    }
+
+    .card img {
+        height: 105px;
+    }
+
+    .card-content {
+        padding: 0.62rem;
+    }
+
+    .card h2 {
+        font-size: 0.8rem;
+        min-height: 2.1rem;
+    }
+
+    .card-actions {
+        grid-template-columns: 1fr 32px;
+        gap: 0.32rem;
+    }
+
+    .card-actions .ghost,
+    .card-actions button:not(.icon-button) {
+        font-size: 0.72rem;
+        padding-inline: 0.35rem;
+    }
+
+    .card-actions .icon-button {
+        width: 32px;
+        height: 32px;
+        min-width: 32px;
+        min-height: 32px;
+    }
+
+    .photo-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .photo-grid .photo-thumb img {
+        height: 180px;
+    }
+}

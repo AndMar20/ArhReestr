@@ -1,0 +1,56 @@
+﻿@inherits ErrorBoundary
+@implements IDisposable
+@inject ILogger<GlobalErrorBoundary> Logger
+@inject NavigationManager NavigationManager
+
+@if (CurrentException is null)
+{
+    @ChildContent
+}
+else
+{
+    <section class="global-error-card" role="alert" aria-live="assertive">
+        <div>
+            <p class="eyebrow">Ошибка приложения</p>
+            <h1>Возникла непредвиденная ошибка</h1>
+            <p>Попробуйте повторить действие или вернитесь в каталог. Подробности сохранены в журнале приложения.</p>
+        </div>
+        <div class="global-error-actions">
+            <button type="button" class="primary" @onclick="RecoverFromError">Повторить</button>
+            <NavLink href="/" class="ghost">В каталог</NavLink>
+        </div>
+    </section>
+}
+
+@code {
+    protected override void OnInitialized()
+    {
+        NavigationManager.LocationChanged += OnLocationChanged;
+        base.OnInitialized();
+    }
+
+    protected override Task OnErrorAsync(Exception exception)
+    {
+        Logger.LogError(exception, "Unhandled UI error was caught by the global error boundary.");
+        return Task.CompletedTask;
+    }
+
+    private void RecoverFromError()
+    {
+        Recover();
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        _ = InvokeAsync(() =>
+        {
+            Recover();
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        NavigationManager.LocationChanged -= OnLocationChanged;
+    }
+}
