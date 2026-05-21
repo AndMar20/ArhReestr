@@ -1,4 +1,4 @@
-﻿namespace WebApp.ViewModels;
+namespace WebApp.ViewModels;
 
 /// <summary>
 /// Краткие сведения о пользователе для административных списков.
@@ -39,4 +39,14 @@ public class UserListItem
     /// Дата создания учетной записи.
     /// </summary>
     public DateTime CreatedAt { get; set; }
+
+    /// <summary>
+    /// Дата блокировки учетной записи.
+    /// </summary>
+    public DateTime? DeletedAt { get; set; }
+
+    /// <summary>
+    /// Признак заблокированного пользователя.
+    /// </summary>
+    public bool IsBlocked => DeletedAt.HasValue;
 }

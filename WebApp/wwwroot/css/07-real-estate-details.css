@@ -355,3 +355,46 @@
     color: #6b7280;
 }
 
+
+/* Keep detail hero actions visually aligned regardless of button type. */
+.detail-hero-actions .card-actions {
+    display: flex;
+    align-items: stretch;
+    justify-content: flex-end;
+    gap: 0.55rem;
+}
+
+.detail-hero-actions .card-actions > button,
+.detail-hero-actions .card-actions > a {
+    height: 48px;
+    min-height: 48px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 1.05rem;
+    border-radius: 14px;
+    font: inherit;
+    font-size: 0.92rem;
+    font-weight: 700;
+    line-height: 1;
+    white-space: nowrap;
+    text-align: center;
+}
+
+.detail-hero-actions .card-actions > .primary {
+    min-width: 172px;
+}
+
+.detail-hero-actions .card-actions > .ghost {
+    min-width: 108px;
+}
+
+.detail-hero-actions .card-actions > .icon-button {
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
+    min-height: 48px;
+    flex: 0 0 48px;
+    padding: 0;
+    font-size: 1.05rem;
+}

@@ -42,7 +42,7 @@ public class ArhUserStore :
     /// </summary>
     private static async Task<User?> LoadEntityAsync(ArhReestrContext context, int id, CancellationToken cancellationToken)
     {
-         return await context.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
+         return await context.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.Id == id && u.DeletedAt == null, cancellationToken);
     }
 
     /// <summary>
@@ -124,7 +124,7 @@ public class ArhUserStore :
         await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
         var entity = await context.Users
             .Include(u => u.Role)
-            .FirstOrDefaultAsync(u => u.Email.ToUpper() == normalizedUserName, cancellationToken);
+            .FirstOrDefaultAsync(u => u.Email.ToUpper() == normalizedUserName && u.DeletedAt == null, cancellationToken);
 
         return entity is null ? null : Map(entity);
     }
@@ -231,7 +231,7 @@ public class ArhUserStore :
     {
         await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
         var entity = await context.Users.Include(u => u.Role)
-            .FirstOrDefaultAsync(u => u.Email.ToUpper() == normalizedEmail, cancellationToken);
+            .FirstOrDefaultAsync(u => u.Email.ToUpper() == normalizedEmail && u.DeletedAt == null, cancellationToken);
         return entity is null ? null : Map(entity);
     }
 
@@ -322,7 +322,7 @@ public class ArhUserStore :
     {
         await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
         var entities = await context.Users.Include(u => u.Role)
-            .Where(u => u.Role != null && u.Role.Name == roleName)
+            .Where(u => u.DeletedAt == null && u.Role != null && u.Role.Name == roleName)
             .ToListAsync(cancellationToken);
 
         return entities.Select(Map).ToList();

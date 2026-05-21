@@ -1,9 +1,10 @@
-﻿@page "/admin/users"
+@page "/admin/users"
 @attribute [Authorize(Policy = "RequireAdmin")]
 @inject AdminUserService AdminUserService
 @inject LookupService LookupService
 @inject ILogger<ManageUsers> Logger
 @inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IJSRuntime JS
 @using DataLayer.Models
 @using global::System.Security.Claims
 
@@ -136,11 +137,15 @@ else
                     <tbody>
                         @foreach (var user in FilteredUsers)
                         {
-                            var isDeleting = deletingUsers.Contains(user.Id);
+                            var isBlocking = blockingUsers.Contains(user.Id);
                             <tr>
                                 <td data-label="ФИО">
                                     <div class="cell-primary">@user.FullName</div>
                                     <div class="cell-note">ID: @user.Id</div>
+                                    @if (user.IsBlocked)
+                                    {
+                                        <span class="badge role-badge danger">Заблокирован</span>
+                                    }
                                 </td>
                                 <td data-label="Контакты">
                                     <div>@user.Email</div>
@@ -149,7 +154,7 @@ else
                                 <td data-label="Роль">
                                     <span class="badge role-badge">@user.RoleDisplayName</span>
                                     <div class="select compact-select">
-                                        <select @bind="user.SelectedRole" aria-label="Выбрать роль для пользователя @user.FullName">
+                                        <select @bind="user.SelectedRole" disabled="@(user.IsSaving || user.IsBlocked)" aria-label="Выбрать роль для пользователя @user.FullName">
                                             @foreach (var role in Roles)
                                             {
                                                 <option value="@role.Name">@role.DisplayName</option>
@@ -159,16 +164,25 @@ else
                                 </td>
                                 <td data-label="Создан">@DateTimeDisplay.Format(user.CreatedAt)</td>
                                 <td class="table-actions user-management-actions" data-label="Действия">
-                                    <input class="compact-password-input" type="password" placeholder="Новый пароль" @bind="user.NewPassword" disabled="@user.IsSaving" />
-                                    <button class="ghost" disabled="@user.IsSaving" @onclick="() => ResetPasswordAsync(user)">
+                                    <input class="compact-password-input" type="password" placeholder="Новый пароль" @bind="user.NewPassword" disabled="@(user.IsSaving || user.IsBlocked)" />
+                                    <button class="ghost" disabled="@(user.IsSaving || user.IsBlocked)" @onclick="() => ResetPasswordAsync(user)">
                                         @(user.IsSaving ? "Сохраняем..." : "Сменить пароль")
                                     </button>
-                                    <button class="ghost" disabled="@user.IsSaving" @onclick="() => SaveRoleAsync(user)">
+                                    <button class="ghost" disabled="@(user.IsSaving || user.IsBlocked)" @onclick="() => SaveRoleAsync(user)">
                                         @(user.IsSaving ? "Сохраняем..." : "Обновить роль")
                                     </button>
-                                    <button class="danger ghost" disabled="@isDeleting" @onclick="() => DeleteUserAsync(user)">
-                                        @(isDeleting ? "Удаляем..." : "Удалить")
-                                    </button>
+                                    @if (user.IsBlocked)
+                                    {
+                                        <button class="ghost" disabled="@isBlocking" @onclick="() => UnblockUserAsync(user)">
+                                            @(isBlocking ? "Разблокируем..." : "Разблокировать")
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <button class="danger ghost" disabled="@(isBlocking || IsSameUser(user))" @onclick="() => BlockUserAsync(user)">
+                                            @(isBlocking ? "Блокируем..." : "Заблокировать email")
+                                        </button>
+                                    }
                                 </td>
                             </tr>
                         }
@@ -191,7 +205,7 @@ else
     private bool ShowCreateForm;
     private string UserSearch { get; set; } = string.Empty;
     private string RoleFilter { get; set; } = string.Empty;
-    private readonly HashSet<int> deletingUsers = new();
+    private readonly HashSet<int> blockingUsers = new();
     private int currentUserId;
 
     private List<EditableUser> FilteredUsers => Users
@@ -378,25 +392,26 @@ else
         }
     }
 
-    private async Task DeleteUserAsync(EditableUser user)
+    private async Task BlockUserAsync(EditableUser user)
     {
         if (IsSameUser(user))
         {
-            Notification = "Нельзя удалить собственную учётную запись.";
+            Notification = "Нельзя заблокировать собственную учётную запись.";
             NotificationStyle = "error";
             return;
         }
 
-        if (!deletingUsers.Add(user.Id))
+        var confirmed = await JS.InvokeAsync<bool>("confirm", $"Заблокировать вход по email {user.Email}? Пользователь не сможет войти и отправлять сообщения.");
+        if (!confirmed || !blockingUsers.Add(user.Id))
         {
             return;
         }
 
         try
         {
-            await AdminUserService.DeleteUserAsync(user.Id, currentUserId);
+            await AdminUserService.BlockUserAsync(user.Id, currentUserId);
             await ReloadUsersAsync();
-            Notification = $"Пользователь {user.FullName} удалён.";
+            Notification = $"Пользователь {user.FullName} заблокирован.";
             NotificationStyle = "success";
         }
         catch (InvalidOperationException ex)
@@ -408,11 +423,43 @@ else
         {
             Notification = DatabaseErrorMessages.Resolve(ex);
             NotificationStyle = "error";
-            Logger.LogError(ex, "Ошибка при удалении пользователя {UserId}", user.Id);
+            Logger.LogError(ex, "Ошибка при блокировке пользователя {UserId}", user.Id);
         }
         finally
         {
-            deletingUsers.Remove(user.Id);
+            blockingUsers.Remove(user.Id);
+        }
+    }
+
+    private async Task UnblockUserAsync(EditableUser user)
+    {
+        var confirmed = await JS.InvokeAsync<bool>("confirm", $"Разблокировать вход по email {user.Email}?");
+        if (!confirmed || !blockingUsers.Add(user.Id))
+        {
+            return;
+        }
+
+        try
+        {
+            await AdminUserService.UnblockUserAsync(user.Id, currentUserId);
+            await ReloadUsersAsync();
+            Notification = $"Пользователь {user.FullName} разблокирован.";
+            NotificationStyle = "success";
+        }
+        catch (InvalidOperationException ex)
+        {
+            Notification = ex.Message;
+            NotificationStyle = "error";
+        }
+        catch (Exception ex)
+        {
+            Notification = DatabaseErrorMessages.Resolve(ex);
+            NotificationStyle = "error";
+            Logger.LogError(ex, "Ошибка при разблокировке пользователя {UserId}", user.Id);
+        }
+        finally
+        {
+            blockingUsers.Remove(user.Id);
         }
     }
 
@@ -429,6 +476,7 @@ else
             RoleName = item.RoleName;
             RoleDisplayName = item.RoleDisplayName;
             CreatedAt = item.CreatedAt;
+            DeletedAt = item.DeletedAt;
             SelectedRole = item.RoleName;
         }
 
@@ -440,6 +488,8 @@ else
         public string RoleDisplayName { get; set; }
         public string SelectedRole { get; set; }
         public DateTime CreatedAt { get; }
+        public DateTime? DeletedAt { get; }
+        public bool IsBlocked => DeletedAt.HasValue;
         public string NewPassword { get; set; } = string.Empty;
         public bool IsSaving { get; set; }
     }

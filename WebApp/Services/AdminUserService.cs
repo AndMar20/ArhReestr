@@ -1,4 +1,4 @@
-﻿using DataLayer;
+using DataLayer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using System.Data.Common;
@@ -38,10 +38,10 @@ public class AdminUserService
         try
         {
             var users = await _context.Users
-                .Where(u => u.DeletedAt == null)
                 .Include(u => u.Role)
                 .AsNoTracking()
-                .OrderBy(u => u.CreatedAt)
+                .OrderBy(u => u.DeletedAt != null)
+                .ThenBy(u => u.CreatedAt)
                 .ToListAsync(cancellationToken);
 
             return users.Select(MapToListItem).ToList();
@@ -143,10 +143,13 @@ public class AdminUserService
         }
 
         var normalizedEmail = model.Email.Trim().ToUpperInvariant();
-        var existing = await _userManager.FindByEmailAsync(normalizedEmail);
-        if (existing is not null)
+        var existingEntity = await _context.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Email.ToUpper() == normalizedEmail, cancellationToken);
+        if (existingEntity is not null)
         {
-            throw new InvalidOperationException("Пользователь с таким email уже существует.");
+            var state = existingEntity.DeletedAt.HasValue ? "заблокирован" : "уже существует";
+            throw new InvalidOperationException($"Пользователь с таким email {state}.");
         }
 
         var role = await _context.Roles.FirstOrDefaultAsync(r => r.Name == model.RoleName, cancellationToken);
@@ -197,33 +200,57 @@ public class AdminUserService
             Phone = user.PhoneNumber ?? string.Empty,
             RoleName = role.Name,
             RoleDisplayName = role.DisplayName,
-            CreatedAt = user.CreatedAt
+            CreatedAt = user.CreatedAt,
+            DeletedAt = null
         };
     }
 
     /// <summary>
-    /// Помечает пользователя удалённым через Identity, не давая снести самого себя.
+    /// Блокирует пользователя по email, не удаляя историю заявок и сообщений.
     /// </summary>
-    public async Task DeleteUserAsync(int userId, int actingUserId, CancellationToken cancellationToken = default)
+    public async Task BlockUserAsync(int userId, int actingUserId, CancellationToken cancellationToken = default)
     {
         if (userId == actingUserId)
         {
-            throw new InvalidOperationException("Нельзя удалить собственную учётную запись администратора.");
+            throw new InvalidOperationException("Нельзя заблокировать собственную учётную запись администратора.");
         }
 
         var user = await _userManager.FindByIdAsync(userId.ToString());
         if (user is null)
         {
-            throw new InvalidOperationException("Пользователь не найден или уже удалён.");
+            throw new InvalidOperationException("Пользователь не найден или уже заблокирован.");
         }
 
         var result = await _userManager.DeleteAsync(user);
         if (!result.Succeeded)
         {
             var message = string.Join("; ", result.Errors.Select(e => e.Description));
-            _logger.LogWarning("Не удалось удалить пользователя {UserId}: {Message}", userId, message);
+            _logger.LogWarning("Не удалось заблокировать пользователя {UserId}: {Message}", userId, message);
             throw new InvalidOperationException(message);
         }
+
+        await _auditLogService.WriteAsync("User", "block", userId, actingUserId, null, $"Пользователь {user.Email} заблокирован", cancellationToken);
+    }
+
+    public Task DeleteUserAsync(int userId, int actingUserId, CancellationToken cancellationToken = default)
+        => BlockUserAsync(userId, actingUserId, cancellationToken);
+
+    public async Task UnblockUserAsync(int userId, int actingUserId, CancellationToken cancellationToken = default)
+    {
+        var entity = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
+        if (entity is null)
+        {
+            throw new InvalidOperationException("Пользователь не найден.");
+        }
+
+        if (!entity.DeletedAt.HasValue)
+        {
+            return;
+        }
+
+        entity.DeletedAt = null;
+        await _context.SaveChangesAsync(cancellationToken);
+        await _auditLogService.WriteAsync("User", "unblock", userId, actingUserId, null, $"Пользователь {entity.Email} разблокирован", cancellationToken);
     }
 
     public async Task ResetPasswordAsync(int userId, string newPassword, int actingUserId, CancellationToken cancellationToken = default)
@@ -266,7 +293,8 @@ public class AdminUserService
             Phone = entity.Phone,
             RoleName = entity.Role?.Name ?? string.Empty,
             RoleDisplayName = entity.Role?.DisplayName ?? entity.Role?.Name ?? "—",
-            CreatedAt = entity.CreatedAt
+            CreatedAt = entity.CreatedAt,
+            DeletedAt = entity.DeletedAt
         };
     }
 }

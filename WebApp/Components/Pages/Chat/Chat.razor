@@ -1,4 +1,4 @@
-﻿@page "/chat"
+@page "/chat"
 @attribute [Authorize(Roles = "agent,client")]
 @using global::System.Security.Claims
 @implements IAsyncDisposable
@@ -6,6 +6,7 @@
 @inject ChatService ChatService
 @inject InteractionService InteractionService
 @inject NavigationManager NavigationManager
+@inject IJSRuntime JS
 
 <PageTitle>Чаты</PageTitle>
 
@@ -44,7 +45,7 @@
                             <ul class="list-clean">
                                 @foreach (var d in group.Dialogs)
                                 {
-                                    <li>
+                                    <li @key="GetDialogKey(d)">
                                         <button class="ghost dialog-list-button @(IsSelectedDialog(d) ? "active" : string.Empty)" @onclick="() => OpenDialogAsync(d.RealEstateId, d.PeerId)">
                                             <span class="dialog-object-address">@d.RealEstateAddress</span>
                                             @if (d.HasUnread) { <span class="badge accent">new</span> }
@@ -61,8 +62,8 @@
                 <ul class="list-clean">
                     @foreach (var d in FilteredDialogs)
                     {
-                        <li>
-                            <button class="ghost dialog-list-button @(IsSelectedDialog(d) ? "active" : string.Empty)" @onclick="() => OpenDialogAsync(d.RealEstateId, d.PeerId)">
+                        <li @key="GetDialogKey(d)">
+                                        <button class="ghost dialog-list-button @(IsSelectedDialog(d) ? "active" : string.Empty)" @onclick="() => OpenDialogAsync(d.RealEstateId, d.PeerId)">
                                 <strong class="dialog-peer-name">@d.PeerName</strong><br />
                                 <span class="small-text">@d.RealEstateAddress</span><br />
                                 @if (d.HasUnread) { <span class="badge accent">new</span> }
@@ -129,7 +130,7 @@
                     }
                 </div>
             }
-            <div class="chat-messages">
+            <div class="chat-messages" @ref="messagesContainer">
                 @if (messages.Count == 0)
                 {
                     <p class="small-text chat-empty-state">Сообщений пока нет.</p>
@@ -151,7 +152,7 @@
             </div>
 
             <div class="form-stack chat-send-form">
-                <textarea class="input-textarea" value="@draft" @oninput="OnMessageInput" rows="@messageRows" style="resize:none;overflow:hidden;"></textarea>
+                <textarea class="input-textarea" value="@draft" @oninput="OnMessageInput" @onkeydown="HandleMessageKeyDown" rows="@messageRows" style="resize:none;overflow:hidden;"></textarea>
                 <button type="button" class="primary" disabled="@string.IsNullOrWhiteSpace(draft)" @onclick="SendAsync">Отправить</button>
             </div>
         }
@@ -187,6 +188,8 @@
     private bool isStatusSaving;
     private bool isDeletingDialog;
     private bool isDialogMenuOpen;
+    private ElementReference messagesContainer;
+    private bool shouldScrollMessages;
     private bool CanEditSelectedInteraction => selectedInteraction is not null && (isAdmin || selectedInteraction.AgentId == userId);
     private string CurrentDialogUrl => selectedRealEstateId > 0 && selectedPeerId > 0
         ? $"/chat?realEstateId={selectedRealEstateId}&peerId={selectedPeerId}"
@@ -231,8 +234,9 @@
     {
         try
         {
+            var updatedDialogs = await ChatService.GetDialogsAsync(userId);
             dialogs.Clear();
-            dialogs.AddRange(await ChatService.GetDialogsAsync(userId));
+            dialogs.AddRange(updatedDialogs);
         }
         catch (Exception ex)
         {
@@ -249,6 +253,8 @@
         chatNotice = null;
         await ReloadMessagesAsync();
     }
+
+    private static string GetDialogKey(ChatDialogItem dialog) => $"{dialog.RealEstateId}:{dialog.PeerId}";
 
     private bool IsSelectedDialog(ChatDialogItem dialog)
     {
@@ -278,8 +284,15 @@
         if (selectedRealEstateId <= 0 || selectedPeerId <= 0) return;
         try
         {
+            var loadedMessages = await ChatService.GetMessagesAsync(userId, selectedRealEstateId, selectedPeerId);
+            var lastKnownMessageId = messages.LastOrDefault()?.Id;
+            var lastLoadedMessageId = loadedMessages.LastOrDefault()?.Id;
+            if (messages.Count != loadedMessages.Count || lastKnownMessageId != lastLoadedMessageId)
+            {
+                shouldScrollMessages = true;
+            }
             messages.Clear();
-            messages.AddRange(await ChatService.GetMessagesAsync(userId, selectedRealEstateId, selectedPeerId));
+            messages.AddRange(loadedMessages);
             await ChatService.MarkAsReadAsync(userId, selectedRealEstateId, selectedPeerId);
             selectedInteraction = await InteractionService.GetDialogInteractionAsync(userId, selectedRealEstateId, selectedPeerId, isAdmin);
             if (string.IsNullOrWhiteSpace(selectedRealEstateAddress) && selectedInteraction is not null)
@@ -328,6 +341,14 @@
         catch (Exception ex)
         {
             chatNotice = $"Не удалось отправить сообщение: {ex.Message}";
+        }
+    }
+
+    private async Task HandleMessageKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter" && !args.ShiftKey && !string.IsNullOrWhiteSpace(draft))
+        {
+            await SendAsync();
         }
     }
 
@@ -414,6 +435,17 @@
         chatNotice = null;
         NavigationManager.NavigateTo("/chat");
     }
+    
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!shouldScrollMessages || selectedRealEstateId <= 0)
+        {
+            return;
+        }
+
+        shouldScrollMessages = false;
+        await JS.InvokeVoidAsync("arhChat.scrollToBottom", messagesContainer);
+    }
     private void StartPolling()
     {
         cts = new CancellationTokenSource();
@@ -428,8 +460,14 @@
                     await InvokeAsync(async () =>
                     {
                         if (isDisposed) return;
-                        await ReloadDialogsAsync();
-                        await ReloadMessagesAsync();
+                        if (selectedRealEstateId > 0 && selectedPeerId > 0)
+                        {
+                            await ReloadMessagesAsync();
+                        }
+                        else
+                        {
+                            await ReloadDialogsAsync();
+                        }
                     });
                 }
             }

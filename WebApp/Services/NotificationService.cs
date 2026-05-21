@@ -39,7 +39,7 @@ public class NotificationService
         await using var context = await _contextFactory.CreateDbContextAsync(token);
         return await context.Notifications
             .AsNoTracking()
-            .Where(n => n.UserId == userId)
+            .Where(n => n.UserId == userId && (n.LinkUrl == null || !n.LinkUrl.StartsWith("/chat")))
             .OrderByDescending(n => n.CreatedAt)
             .Take(100)
             .ToListAsync(token);
@@ -50,7 +50,7 @@ public class NotificationService
         await using var context = await _contextFactory.CreateDbContextAsync(token);
         return await context.Notifications
             .AsNoTracking()
-            .CountAsync(n => n.UserId == userId && !n.IsRead, token);
+            .CountAsync(n => n.UserId == userId && !n.IsRead && (n.LinkUrl == null || !n.LinkUrl.StartsWith("/chat")), token);
     }
 
     public async Task MarkAllAsReadAsync(int userId, CancellationToken token = default)

@@ -9,21 +9,33 @@ public class ChatService
 {
     private readonly IDbContextFactory<ArhReestrContext> _contextFactory;
     private readonly TimeProvider _timeProvider;
-    private readonly NotificationService _notificationService;
-
     public ChatService(
         IDbContextFactory<ArhReestrContext> contextFactory,
-        TimeProvider timeProvider,
-        NotificationService notificationService)
+        TimeProvider timeProvider)
     {
         _contextFactory = contextFactory;
         _timeProvider = timeProvider;
-        _notificationService = notificationService;
     }
 
     public async Task<int> SendAsync(int realEstateId, int senderId, int recipientId, string message, CancellationToken token = default)
     {
         await using var context = await _contextFactory.CreateDbContextAsync(token);
+        var participants = await context.Users
+            .AsNoTracking()
+            .Where(user => (user.Id == senderId || user.Id == recipientId) && user.DeletedAt == null)
+            .Select(user => user.Id)
+            .ToListAsync(token);
+
+        if (!participants.Contains(senderId))
+        {
+            throw new InvalidOperationException("Учётная запись удалена или недоступна. Войдите заново.");
+        }
+
+        if (!participants.Contains(recipientId))
+        {
+            throw new InvalidOperationException("Получатель удалён или недоступен.");
+        }
+
         var entity = new ChatMessage
         {
             RealEstateId = realEstateId,
@@ -35,20 +47,6 @@ public class ChatService
 
         context.ChatMessages.Add(entity);
         await context.SaveChangesAsync(token);
-
-        var senderName = await context.Users
-            .AsNoTracking()
-            .Where(user => user.Id == senderId)
-            .Select(user => user.LastName + " " + user.FirstName)
-            .FirstOrDefaultAsync(token);
-
-        var linkUrl = $"/chat?realEstateId={realEstateId}&peerId={senderId}";
-        await _notificationService.CreateAsync(
-            recipientId,
-            "Новое сообщение",
-            $"{(string.IsNullOrWhiteSpace(senderName) ? "Собеседник" : senderName)} написал по объекту #{realEstateId}.",
-            linkUrl,
-            token);
         return entity.Id;
     }
 
@@ -124,7 +122,10 @@ public class ChatService
         await using var context = await _contextFactory.CreateDbContextAsync(token);
         return await context.ChatMessages
             .AsNoTracking()
-            .CountAsync(m => m.RecipientId == userId && m.ReadAt == null, token);
+            .Where(m => m.RecipientId == userId && m.ReadAt == null)
+            .Select(m => new { m.RealEstateId, PeerId = m.SenderId })
+            .Distinct()
+            .CountAsync(token);
     }
 
     public async Task DeleteDialogAsync(int userId, int realEstateId, int peerId, CancellationToken token = default)

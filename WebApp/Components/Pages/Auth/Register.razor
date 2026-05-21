@@ -3,9 +3,11 @@
 @inject NavigationManager NavigationManager
 @inject LookupService LookupService
 @inject ILogger<Register> Logger
+@inject IDbContextFactory<ArhReestrContext> ContextFactory
 @using global::System.Text.RegularExpressions
 @using global::System.Data.Common
 @using Microsoft.EntityFrameworkCore
+@using DataLayer
 
 <PageTitle>Регистрация</PageTitle>
 
@@ -24,7 +26,6 @@
 
             <EditForm Model="Model" OnValidSubmit="RegisterAsync" FormName="registerForm" class="form-stack">
                 <DataAnnotationsValidator />
-                <ValidationSummary />
                 <div class="grid-two">
                     <label>Фамилия
                         <InputText @bind-Value="Model.LastName" />
@@ -82,10 +83,15 @@
         try
         {
             var normalizedEmail = Model.Email.Trim().ToUpperInvariant();
-            var existingUser = await UserManager.FindByEmailAsync(normalizedEmail);
-            if (existingUser is not null)
+            await using var context = await ContextFactory.CreateDbContextAsync();
+            var existingAccount = await context.Users
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Email.ToUpper() == normalizedEmail);
+            if (existingAccount is not null)
             {
-                Error = "Пользователь с таким email уже зарегистрирован.";
+                Error = existingAccount.DeletedAt.HasValue
+                    ? "Учётная запись с таким email заблокирована. Обратитесь к администратору."
+                    : "Пользователь с таким email уже зарегистрирован.";
                 return;
             }
 

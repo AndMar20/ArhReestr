@@ -25,7 +25,7 @@ public sealed class RevalidatingIdentityAuthenticationStateProvider<TUser>
         _options = optionsAccessor.Value;
     }
 
-    protected override TimeSpan RevalidationInterval { get; } = TimeSpan.FromMinutes(30);
+    protected override TimeSpan RevalidationInterval { get; } = TimeSpan.FromSeconds(30);
 
     /// <summary>
     /// Проверяет, может ли пользователь продолжать работу в рамках текущей куки/токена.
