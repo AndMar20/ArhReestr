@@ -25,7 +25,6 @@
             <div class="hero-actions">
                 <div class="segmented-control" role="group" aria-label="Режим отображения">
                     <button type="button" class='@GetSegmentedClass("cards")' @onclick='() => SetViewMode("cards")'>Карточки</button>
-                    <button type="button" class='@GetSegmentedClass("list")' @onclick='() => SetViewMode("list")'>Список</button>
                     <button type="button" class='@GetSegmentedClass("map")' @onclick='() => SetViewMode("map")'>Карта</button>
                 </div>
                 <div class="tag-pill action">@StatusText</div>
@@ -219,56 +218,6 @@ else
                 }
             </div>
         }
-        else if (viewMode == "list")
-        {
-            <div class="table-wrapper">
-                <table class="data-table stacked-table">
-                    <thead>
-                        <tr>
-                            <th>Адрес</th>
-                            <th>Район</th>
-                            <th>Тип</th>
-                            <th>Комнаты</th>
-                            <th>Площадь</th>
-                            <th>Этаж</th>
-                            <th>Цена</th>
-                            <th>Риелтор</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var item in Results)
-                        {
-                            <tr>
-                                <td data-label="Адрес">@item.Address</td>
-                                <td data-label="Район">@item.District</td>
-                                <td data-label="Тип">@item.Type</td>
-                                <td data-label="Комнаты">@item.Rooms</td>
-                                <td data-label="Площадь">@item.Area м²</td>
-                                <td data-label="Этаж">@item.Floor / @item.TotalFloors</td>
-                                <td data-label="Цена">@item.Price.ToString("N0") ₽</td>
-                                <td data-label="Риелтор">@item.Agent</td>
-                                <td class="actions-row table-actions" data-label="Действия">
-                                    @if (CanRequestInteraction)
-                                    {
-                                        <button @onclick="() => ContactAsync(item)"
-                                                disabled="@(IsLoading || pendingFilter || contactingItems.Contains(item.Id))"
-                                                class="@(activeRequestIds.ContainsKey(item.Id) ? "danger" : string.Empty)">
-                                            @(GetInteractionButtonText(item.Id))
-                                        </button>
-                                    }
-                                    <button class="icon-button favorite-button @(favoriteIds.Contains(item.Id) ? "active" : string.Empty)" @onclick="() => ToggleFavoriteAsync(item.Id)" disabled="@(IsLoading || pendingFilter)">
-                                        <span aria-hidden="true">★</span>
-                                        <span class="sr-only">@(favoriteIds.Contains(item.Id) ? "Убрать из избранного" : "Добавить в избранное")</span>
-                                    </button>
-                                    <a class="ghost" href="@BuildObjectUrl(item.Id)">Подробнее</a>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-        }
         else
         {
             var mapItems = MapItems.ToList();
@@ -372,7 +321,6 @@ else
         : $"{TotalResults} записей · {PaginationStatus}";
     private string ViewModeLabel => viewMode switch
     {
-        "list" => "список",
         "map" => "карта",
         _ => "карточки"
     };
@@ -981,7 +929,7 @@ else
 
     private static string NormalizeViewMode(string? mode)
     {
-        return mode is "list" or "map" ? mode : "cards";
+        return mode is "map" ? mode : "cards";
     }
 
     private decimal CalculateMonthlyPayment(decimal price)

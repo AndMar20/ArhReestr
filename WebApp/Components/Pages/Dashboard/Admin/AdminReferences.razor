@@ -154,9 +154,9 @@
 
     private void ResetSearch() => Search = string.Empty;
 
-    private static string BuildDistrictUrl(int districtId) => $"/search?districtId={districtId}";
+    private static string BuildDistrictUrl(int districtId) => $"/admin/objects?districtId={districtId}";
 
-    private static string BuildStreetUrl(int streetId) => $"/search?streetId={streetId}";
+    private static string BuildStreetUrl(int streetId) => $"/admin/objects?streetId={streetId}";
 
     private async Task DeleteDistrictAsync(int districtId)
     {

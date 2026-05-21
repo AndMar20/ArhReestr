@@ -2,6 +2,7 @@
 @attribute [Authorize(Policy = "RequireAdmin")]
 @inject RealEstateService RealEstateService
 @inject LookupService LookupService
+@inject NavigationManager NavigationManager
 
 <PageTitle>Объекты</PageTitle>
 
@@ -104,6 +105,12 @@ else
     private string StatusFilter { get; set; } = string.Empty;
     private List<DataLayer.Models.RealEstateStatus> Statuses { get; set; } = new();
 
+    [SupplyParameterFromQuery(Name = "districtId")]
+    public int? DistrictIdQuery { get; set; }
+
+    [SupplyParameterFromQuery(Name = "streetId")]
+    public int? StreetIdQuery { get; set; }
+
     private List<RealEstateSummary> FilteredObjects => Objects
         .Where(MatchesSearch)
         .Where(MatchesStatusFilter)
@@ -120,7 +127,9 @@ else
                 PageSize = 200,
                 SortBy = "created",
                 SortDescending = true,
-                IncludeUnavailable = true
+                IncludeUnavailable = true,
+                DistrictId = DistrictIdQuery,
+                StreetId = StreetIdQuery
             });
 
             Objects = result.Items.ToList();
@@ -171,8 +180,17 @@ else
         StatusFilter = string.Empty;
     }
 
-    private static string BuildObjectUrl(int id) => $"/real-estate/{id}?returnUrl={Uri.EscapeDataString("/admin/objects")}";
+    private string BuildObjectUrl(int id) => $"/real-estate/{id}?returnUrl={Uri.EscapeDataString(CurrentReturnUrl)}";
 
-    private static string BuildEditUrl(int id) => $"/real-estate/{id}/edit?returnUrl={Uri.EscapeDataString("/admin/objects")}";
+    private string BuildEditUrl(int id) => $"/real-estate/{id}/edit?returnUrl={Uri.EscapeDataString(CurrentReturnUrl)}";
+
+    private string CurrentReturnUrl
+    {
+        get
+        {
+            var relative = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+            return string.IsNullOrWhiteSpace(relative) ? "/admin/objects" : $"/{relative}";
+        }
+    }
 
 }

@@ -1,4 +1,4 @@
-﻿using System.Data;
+using System.Data;
 using System.Data.Common;
 using DataLayer;
 using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
@@ -14,7 +14,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.AspNetCore.Antiforgery;
 
-// РўРѕС‡РєР° РІС…РѕРґР° Blazor Server: РЅР°СЃС‚СЂР°РёРІР°РµРј DI, Р°СѓС‚РµРЅС‚РёС„РёРєР°С†РёСЋ Рё РјРёРЅРёРјР°Р»СЊРЅС‹Рµ API.
+// Точка входа Blazor Server: настраиваем DI, аутентификацию и минимальные API.
 var crashLogPath = Path.Combine(AppContext.BaseDirectory, "webapp-crash.log");
 void WriteCrashLog(string source, Exception exception)
 {
@@ -45,12 +45,12 @@ TaskScheduler.UnobservedTaskException += (_, args) =>
 
 var builder = WebApplication.CreateBuilder(args);
 
-// РџРѕР»СѓС‡Р°РµРј СЃС‚СЂРѕРєСѓ РїРѕРґРєР»СЋС‡РµРЅРёСЏ Рє MySQL РёР· РєРѕРЅС„РёРіСѓСЂР°С†РёРё; РµСЃР»Рё РµС‘ РЅРµС‚, РёСЃРїРѕР»СЊР·СѓРµРј InMemory, С‡С‚РѕР±С‹ РїСЂРёР»РѕР¶РµРЅРёРµ РјРѕРіР»Рѕ СЃС‚Р°СЂС‚РѕРІР°С‚СЊ Р±РµР· Р‘Р”.
+// Получаем строку подключения к MySQL из конфигурации; если её нет, используем InMemory, чтобы приложение могло стартовать без БД.
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 var useInMemory = string.IsNullOrWhiteSpace(connectionString);
 
-// Р РµРіРёСЃС‚СЂРёСЂСѓРµРј РєРѕРЅС‚РµРєСЃС‚ EF Core СЃ РїСЂРѕРІР°Р№РґРµСЂРѕРј MySQL РёР»Рё InMemory.
-// РСЃРїРѕР»СЊР·СѓРµРј С„Р°Р±СЂРёРєСѓ, С‡С‚РѕР±С‹ РєР°Р¶РґС‹Р№ Р·Р°РїСЂРѕСЃ РїРѕР»СѓС‡Р°Р» СЃРІРѕР№ СЌРєР·РµРјРїР»СЏСЂ РєРѕРЅС‚РµРєСЃС‚Р°.
+// Регистрируем контекст EF Core с провайдером MySQL или InMemory.
+// Используем фабрику, чтобы каждый запрос получал свой экземпляр контекста.
 builder.Services.AddDbContextFactory<ArhReestrContext>(options =>
 {
     if (useInMemory)
@@ -73,7 +73,7 @@ builder.Services.AddScoped<ProtectedLocalStorage>();
 builder.Services.AddScoped<IUserStore<ApplicationUser>, ArhUserStore>();
 builder.Services.AddScoped<IRoleStore<ApplicationRole>, ArhRoleStore>();
 
-// РќР°СЃС‚СЂР°РёРІР°РµРј Identity СЃ РјРёРЅРёРјР°Р»СЊРЅС‹РјРё С‚СЂРµР±РѕРІР°РЅРёСЏРјРё Рє РїР°СЂРѕР»СЋ Рё СѓРЅРёРєР°Р»СЊРЅРѕСЃС‚СЊСЋ РїРѕС‡С‚С‹.
+// Настраиваем Identity с минимальными требованиями к паролю и уникальностью почты.
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
     {
         options.Password.RequireDigit = true;
@@ -104,7 +104,7 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.SlidingExpiration = true;
 });
 
-// РџРѕР»РёС‚РёРєРё Р°РІС‚РѕСЂРёР·Р°С†РёРё: СЂРѕР»СЊ Р°РіРµРЅС‚Р° Рё Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР°.
+// Политики авторизации: роль агента и администратора.
 builder.Services.AddAuthorizationBuilder()
     .AddPolicy("RequireAgent", policy => policy.RequireRole("agent", "admin"))
     .AddPolicy("RequireClient", policy => policy.RequireRole("client", "admin"))
@@ -138,7 +138,7 @@ builder.Services.AddRazorComponents()
 
 var app = builder.Build();
 
-// РџСЂРё РЅР°Р»РёС‡РёРё СЂРµР°Р»СЊРЅРѕР№ СЃС‚СЂРѕРєРё РїРѕРґРєР»СЋС‡РµРЅРёСЏ РїСЂРѕРІРµСЂСЏРµРј РґРѕСЃС‚СѓРїРЅРѕСЃС‚СЊ Р‘Р”, РЅРѕ РЅРµ РїР°РґР°РµРј РїСЂРё РёСЃРїРѕР»СЊР·РѕРІР°РЅРёРё InMemory.
+// При наличии реальной строки подключения проверяем доступность БД, но не падаем при использовании InMemory.
 if (!useInMemory)
 {
     using var scope = app.Services.CreateScope();
@@ -163,7 +163,7 @@ if (!useInMemory)
                 throw new InvalidOperationException(DatabaseErrorMessages.ConnectionFailed);
             }
 
-            logger.LogWarning("Р‘Р°Р·Р° РґР°РЅРЅС‹С… РїРѕРєР° РЅРµРґРѕСЃС‚СѓРїРЅР°, РїРѕРІС‚РѕСЂРЅР°СЏ РїСЂРѕРІРµСЂРєР° {Attempt}/{MaxAttempts}", attempt, maxAttempts);
+            logger.LogWarning("База данных пока недоступна, повторная проверка {Attempt}/{MaxAttempts}", attempt, maxAttempts);
             await Task.Delay(TimeSpan.FromSeconds(5));
         }
     }
@@ -252,7 +252,7 @@ app.Use(async (context, next) =>
     {
         var logger = context.RequestServices.GetRequiredService<ILoggerFactory>()
             .CreateLogger("Antiforgery");
-        logger.LogWarning(ex, "РђРЅС‚РёС„СЂРѕРґ С‚РѕРєРµРЅ РЅРµ РїСЂРѕС€С‘Р» РїСЂРѕРІРµСЂРєСѓ РґР»СЏ {Path}", context.Request.Path);
+        logger.LogWarning(ex, "Антифрод токен не прошёл проверку для {Path}", context.Request.Path);
 
         if (!context.Response.HasStarted)
         {
@@ -275,6 +275,20 @@ app.UseAntiforgery();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
+static string GetSafeRedirectUrl(string? returnUrl, string fallback = "/")
+{
+    if (string.IsNullOrWhiteSpace(returnUrl))
+    {
+        return fallback;
+    }
+
+    return Uri.TryCreate(returnUrl, UriKind.Relative, out _)
+        && returnUrl.StartsWith("/", StringComparison.Ordinal)
+        && !returnUrl.StartsWith("//", StringComparison.Ordinal)
+        && !returnUrl.StartsWith("/\\", StringComparison.Ordinal)
+            ? returnUrl
+            : fallback;
+}
 app.MapPost("/login", async ([FromForm] LoginInputModel request,
         [FromQuery] string? returnUrl,
         SignInManager<ApplicationUser> signInManager) =>
@@ -293,7 +307,7 @@ app.MapPost("/login", async ([FromForm] LoginInputModel request,
         var result = await signInManager.PasswordSignInAsync(request.Email, request.Password, request.RememberMe, lockoutOnFailure: false);
         if (result.Succeeded)
         {
-            return Results.Redirect(string.IsNullOrWhiteSpace(returnUrl) ? "/" : returnUrl);
+            return Results.Redirect(GetSafeRedirectUrl(returnUrl));
         }
 
         var loginFailedUrl = QueryHelpers.AddQueryString("/login", new Dictionary<string, string?>
@@ -306,14 +320,13 @@ app.MapPost("/login", async ([FromForm] LoginInputModel request,
     })
     .AllowAnonymous();
 
-// Р Р°Р·Р»РѕРіРёРЅРёРІР°РµРј РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ С‡РµСЂРµР· РѕС‚РґРµР»СЊРЅС‹Р№ HTTP-Р·Р°РїСЂРѕСЃ, С‡С‚РѕР±С‹ РёР·Р±РµР¶Р°С‚СЊ РїРѕРґРІРёСЃР°РЅРёР№ РІ SignalR-СЃРѕРµРґРёРЅРµРЅРёРё Blazor.
+// Разлогиниваем пользователя через отдельный HTTP-запрос, чтобы избежать подвисаний в SignalR-соединении Blazor.
 app.MapPost("/logout", async ([FromQuery] string? returnUrl,
         SignInManager<ApplicationUser> signInManager) =>
     {
         await signInManager.SignOutAsync();
 
-        var redirectUrl = string.IsNullOrWhiteSpace(returnUrl) ? "/" : returnUrl;
-        return Results.Redirect(redirectUrl);
+        return Results.Redirect(GetSafeRedirectUrl(returnUrl));
     })
     .RequireAuthorization();
 
