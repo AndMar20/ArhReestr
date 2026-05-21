@@ -240,7 +240,7 @@ public class InteractionService
                 .FirstOrDefaultAsync(r => r.Id == realEstateId && r.DeletedAt == null, cancellationToken);
             if (realEstate is null || realEstate.Status?.Code != "active")
             {
-                throw new InvalidOperationException("������ ������ ��������: ������ ����������.");
+                throw new InvalidOperationException("Заявку нельзя создать: объект недоступен.");
             }
 
             var existing = await context.Interactions
@@ -250,7 +250,7 @@ public class InteractionService
 
             if (existing is not null && existing.DeletedAt == null)
             {
-                throw new InvalidOperationException("������ �� ����� ������� ��� �������.");
+                throw new InvalidOperationException("Заявка уже существует или недоступна.");
             }
 
             var statusId = await context.InteractionStatuses
@@ -290,14 +290,14 @@ public class InteractionService
             }
 
             await context.SaveChangesAsync(cancellationToken);
-            await _notificationService.CreateAsync(agentId, "����� ������", $"������ ������� ������ �� ������� #{realEstateId}.", $"/chat?realEstateId={realEstateId}&peerId={clientId}", cancellationToken);
-            await _notificationService.CreateAsync(clientId, "������ �������", $"���� ������ �� ������� #{realEstateId} ���������� ��������.", $"/chat?realEstateId={realEstateId}&peerId={agentId}", cancellationToken);
-            await _auditLogService.WriteAsync("Interaction", auditAction, entity.Id, clientId, null, $"������� ������ �� ������� #{realEstateId}", cancellationToken);
+            await _notificationService.CreateAsync(agentId, "Новая заявка", $"Клиент оставил заявку по объекту #{realEstateId}.", $"/chat?realEstateId={realEstateId}&peerId={clientId}", cancellationToken);
+            await _notificationService.CreateAsync(clientId, "Заявка создана", $"Ваша заявка по объекту #{realEstateId} отправлена риелтору.", $"/chat?realEstateId={realEstateId}&peerId={agentId}", cancellationToken);
+            await _auditLogService.WriteAsync("Interaction", auditAction, entity.Id, clientId, null, $"Создана заявка по объекту #{realEstateId}", cancellationToken);
             return entity.Id;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "�� ������� ������� ��������������");
+            _logger.LogError(ex, "Не удалось создать взаимодействие");
             throw;
         }
     }

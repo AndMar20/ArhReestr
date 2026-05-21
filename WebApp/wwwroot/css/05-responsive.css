@@ -1545,3 +1545,45 @@
         grid-column: auto !important;
     }
 }
+
+/* Favorite star overlay: larger, using the original accent color without a white plate. */
+.card .favorite-button {
+    width: 42px !important;
+    height: 42px !important;
+    min-width: 42px !important;
+    min-height: 42px !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border-color: transparent !important;
+    color: #2563eb !important;
+    box-shadow: none !important;
+    text-shadow: 0 1px 5px rgba(255, 255, 255, 0.95), 0 2px 10px rgba(0, 96, 100, 0.25) !important;
+}
+
+.card .favorite-button:hover,
+.card .favorite-button:focus-visible,
+.card .favorite-button.active,
+.card .favorite-button.active:hover,
+.card .favorite-button.active:focus-visible {
+    background: transparent !important;
+    border-color: transparent !important;
+    color: #2563eb !important;
+    box-shadow: none !important;
+}
+
+.card .favorite-button span[aria-hidden="true"] {
+    font-size: 1.75rem !important;
+}
+
+@media (max-width: 540px) {
+    .card .favorite-button {
+        width: 40px !important;
+        height: 40px !important;
+        min-width: 40px !important;
+        min-height: 40px !important;
+    }
+
+    .card .favorite-button span[aria-hidden="true"] {
+        font-size: 1.65rem !important;
+    }
+}
