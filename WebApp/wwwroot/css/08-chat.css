@@ -334,3 +334,14 @@
         width: 100%;
     }
 }
+.chat-peer-caption {
+    display: block;
+    color: var(--primary-dark);
+    font-weight: 800;
+    margin-top: 0.15rem;
+    overflow-wrap: anywhere;
+}
+
+.chat-title-block {
+    min-width: 0;
+}

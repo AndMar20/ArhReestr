@@ -91,6 +91,10 @@
                 <button type="button" class="ghost chat-back-button" @onclick="BackToDialogs">Назад</button>
                 <div class="chat-title-block">
                     <h2>Сообщения</h2>
+                    @if (!string.IsNullOrWhiteSpace(SelectedPeerName))
+                    {
+                        <span class="chat-peer-caption">@SelectedPeerName</span>
+                    }
                     @if (!string.IsNullOrWhiteSpace(selectedRealEstateAddress))
                     {
                         <span class="small-text">@selectedRealEstateAddress</span>
@@ -170,6 +174,7 @@
     private int selectedRealEstateId;
     private int selectedPeerId;
     private string selectedRealEstateAddress = string.Empty;
+    private string selectedPeerName = string.Empty;
     [Parameter]
     [SupplyParameterFromQuery(Name = "realEstateId")]
     public int? RealEstateId { get; set; }
@@ -195,6 +200,7 @@
     private string CurrentDialogUrl => selectedRealEstateId > 0 && selectedPeerId > 0
         ? $"/chat?realEstateId={selectedRealEstateId}&peerId={selectedPeerId}"
         : "/chat";
+    private string SelectedPeerName => selectedPeerName;
     private string SelectedObjectUrl => selectedRealEstateId > 0
         ? $"/real-estate/{selectedRealEstateId}?returnUrl={Uri.EscapeDataString(CurrentDialogUrl)}"
         : "/search";
@@ -251,6 +257,7 @@
         selectedPeerId = peerId;
         var dialog = dialogs.FirstOrDefault(d => d.RealEstateId == realEstateId && d.PeerId == peerId);
         selectedRealEstateAddress = dialog?.RealEstateAddress ?? string.Empty;
+        selectedPeerName = dialog?.PeerName ?? string.Empty;
         chatNotice = null;
         await ReloadMessagesAsync();
     }
@@ -300,6 +307,10 @@
             {
                 selectedRealEstateAddress = selectedInteraction.RealEstate;
             }
+            if (string.IsNullOrWhiteSpace(selectedPeerName) && selectedInteraction is not null)
+            {
+                selectedPeerName = selectedInteraction.ClientId == userId ? selectedInteraction.Agent : selectedInteraction.Client;
+            }
             selectedStatusId = selectedInteraction?.StatusId ?? statuses.FirstOrDefault()?.Id ?? 0;
             await ReloadDialogsAsync();
             StateHasChanged();
@@ -337,7 +348,7 @@
             await ChatService.SendAsync(selectedRealEstateId, userId, selectedPeerId, messageText.Trim());
             draft = string.Empty;
             messageRows = 2;
-            await JS.InvokeVoidAsync("arhChat.clearValue", messageInput);
+            await TryClearMessageInputAsync();
             chatNotice = null;
             await ReloadMessagesAsync();
         }
@@ -371,6 +382,18 @@
         catch
         {
             return draft;
+        }
+    }
+
+    private async Task TryClearMessageInputAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("arhChat.clearValue", messageInput);
+        }
+        catch
+        {
+            // The message is already saved; a stale cached script must not turn it into a send error.
         }
     }
 
@@ -418,6 +441,7 @@
             selectedRealEstateId = 0;
             selectedPeerId = 0;
             selectedRealEstateAddress = string.Empty;
+            selectedPeerName = string.Empty;
             selectedInteraction = null;
             messages.Clear();
             chatNotice = "Диалог удалён.";
@@ -444,6 +468,7 @@
         selectedRealEstateId = 0;
         selectedPeerId = 0;
         selectedRealEstateAddress = string.Empty;
+        selectedPeerName = string.Empty;
         selectedInteraction = null;
         messages.Clear();
         isDialogMenuOpen = false;

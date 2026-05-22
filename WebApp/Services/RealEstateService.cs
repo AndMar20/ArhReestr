@@ -1,9 +1,10 @@
-﻿using DataLayer;
+using DataLayer;
 using DataLayer.Models;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
+using System.Data;
 using System.Data.Common;
 using System.IO;
 using WebApp.Infrastructure;
@@ -721,6 +722,7 @@ public class RealEstateService
         }
 
         await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+        await EnsurePhotoSchemaAsync(context, cancellationToken);
 
         var entity = await context.RealEstates
             .Include(r => r.Photos)
@@ -797,6 +799,76 @@ public class RealEstateService
         return savedPhotos;
     }
 
+    private static async Task EnsurePhotoSchemaAsync(ArhReestrContext context, CancellationToken cancellationToken)
+    {
+        if (context.Database.IsInMemory())
+        {
+            return;
+        }
+
+        var connection = context.Database.GetDbConnection();
+        var shouldClose = connection.State != ConnectionState.Open;
+
+        if (shouldClose)
+        {
+            await connection.OpenAsync(cancellationToken);
+        }
+
+        try
+        {
+            if (!await ColumnExistsAsync(connection, "RealEstatePhotos", "fileName", cancellationToken))
+            {
+                await ExecuteSchemaCommandAsync(connection, "ALTER TABLE `RealEstatePhotos` ADD COLUMN `fileName` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' AFTER `filePath`;", cancellationToken);
+            }
+
+            if (!await ColumnExistsAsync(connection, "RealEstatePhotos", "isPrimary", cancellationToken))
+            {
+                await ExecuteSchemaCommandAsync(connection, "ALTER TABLE `RealEstatePhotos` ADD COLUMN `isPrimary` tinyint(1) DEFAULT 0 AFTER `fileName`;", cancellationToken);
+            }
+
+            if (!await ColumnExistsAsync(connection, "RealEstatePhotos", "deletedAt", cancellationToken))
+            {
+                await ExecuteSchemaCommandAsync(connection, "ALTER TABLE `RealEstatePhotos` ADD COLUMN `deletedAt` datetime NULL AFTER `isPrimary`;", cancellationToken);
+            }
+        }
+        finally
+        {
+            if (shouldClose)
+            {
+                await connection.CloseAsync();
+            }
+        }
+    }
+
+    private static async Task<bool> ColumnExistsAsync(DbConnection connection, string tableName, string columnName, CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT COUNT(*)
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = @tableName
+              AND COLUMN_NAME = @columnName;
+            """;
+        AddDbParameter(command, "@tableName", tableName);
+        AddDbParameter(command, "@columnName", columnName);
+        return Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken)) > 0;
+    }
+
+    private static async Task ExecuteSchemaCommandAsync(DbConnection connection, string commandText, CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = commandText;
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static void AddDbParameter(DbCommand command, string name, object value)
+    {
+        var parameter = command.CreateParameter();
+        parameter.ParameterName = name;
+        parameter.Value = value;
+        command.Parameters.Add(parameter);
+    }
     public async Task<bool> IsUnavailableAsync(int realEstateId, CancellationToken cancellationToken = default)
     {
         await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
