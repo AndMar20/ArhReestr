@@ -152,7 +152,7 @@
             </div>
 
             <div class="form-stack chat-send-form">
-                <textarea class="input-textarea" value="@draft" @oninput="OnMessageInput" @onkeydown="HandleMessageKeyDown" rows="@messageRows" style="resize:none;overflow:hidden;"></textarea>
+                <textarea class="input-textarea" @ref="messageInput" @oninput="OnMessageInput" @onkeydown="HandleMessageKeyDown" rows="@messageRows" style="resize:none;overflow:hidden;"></textarea>
                 <button type="button" class="primary" disabled="@string.IsNullOrWhiteSpace(draft)" @onclick="SendAsync">Отправить</button>
             </div>
         }
@@ -189,6 +189,7 @@
     private bool isDeletingDialog;
     private bool isDialogMenuOpen;
     private ElementReference messagesContainer;
+    private ElementReference messageInput;
     private bool shouldScrollMessages;
     private bool CanEditSelectedInteraction => selectedInteraction is not null && (isAdmin || selectedInteraction.AgentId == userId);
     private string CurrentDialogUrl => selectedRealEstateId > 0 && selectedPeerId > 0
@@ -329,12 +330,14 @@
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(draft)) return;
+        var messageText = await GetDraftFromInputAsync();
+        if (string.IsNullOrWhiteSpace(messageText)) return;
         try
         {
-            await ChatService.SendAsync(selectedRealEstateId, userId, selectedPeerId, draft.Trim());
+            await ChatService.SendAsync(selectedRealEstateId, userId, selectedPeerId, messageText.Trim());
             draft = string.Empty;
             messageRows = 2;
+            await JS.InvokeVoidAsync("arhChat.clearValue", messageInput);
             chatNotice = null;
             await ReloadMessagesAsync();
         }
@@ -346,7 +349,7 @@
 
     private async Task HandleMessageKeyDown(KeyboardEventArgs args)
     {
-        if (args.Key == "Enter" && !args.ShiftKey && !string.IsNullOrWhiteSpace(draft))
+        if (args.Key == "Enter" && !args.ShiftKey)
         {
             await SendAsync();
         }
@@ -357,6 +360,18 @@
         draft = args.Value?.ToString() ?? string.Empty;
         var lines = draft.Split('\n').Length;
         messageRows = Math.Clamp(lines, 2, 8);
+    }
+
+    private async Task<string> GetDraftFromInputAsync()
+    {
+        try
+        {
+            return await JS.InvokeAsync<string>("arhChat.getValue", messageInput);
+        }
+        catch
+        {
+            return draft;
+        }
     }
 
     private async Task UpdateInteractionStatusAsync()

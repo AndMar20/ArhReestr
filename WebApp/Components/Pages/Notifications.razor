@@ -1,4 +1,4 @@
-@page "/notifications"
+﻿@page "/notifications"
 @attribute [Authorize]
 @using DataLayer.Models
 @using global::System.Security.Claims
@@ -12,7 +12,7 @@
     <div class="section-header">
         <div>
             <h1 class="section-title">Уведомления</h1>
-            <p class="section-sub">Новые заявки, сообщения и изменения по объектам.</p>
+            <p class="section-sub">Новые заявки, изменения статусов и важные события по объектам.</p>
         </div>
         @if (Items.Any(n => !n.IsRead))
         {
@@ -91,7 +91,10 @@
         try
         {
             IsLoading = true;
-            Items = (await NotificationService.GetForUserAsync(userId)).ToList();
+            Items = userId > 0
+                ? (await NotificationService.GetForUserAsync(userId)).ToList()
+                : new List<Notification>();
+            Notification = null;
         }
         catch (Exception ex)
         {
@@ -106,13 +109,29 @@
 
     private async Task MarkAllReadAsync()
     {
-        await NotificationService.MarkAllAsReadAsync(userId);
-        await LoadAsync();
+        try
+        {
+            await NotificationService.MarkAllAsReadAsync(userId);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Notification = DatabaseErrorMessages.Resolve(ex);
+            NotificationStyle = "error";
+        }
     }
 
     private async Task OpenNotificationAsync(Notification item)
     {
-        await NotificationService.MarkAsReadAsync(userId, item.Id);
+        try
+        {
+            await NotificationService.MarkAsReadAsync(userId, item.Id);
+        }
+        catch
+        {
+            // Переход важнее отметки: если отметка не удалась, пользователь всё равно должен попасть к событию.
+        }
+
         NavigationManager.NavigateTo(item.LinkUrl!);
     }
 }

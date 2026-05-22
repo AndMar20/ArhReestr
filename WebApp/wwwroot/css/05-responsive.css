@@ -1587,3 +1587,323 @@
         font-size: 1.65rem !important;
     }
 }
+/* Favorite star states: outline before saving, filled after saving. */
+.card .favorite-button:not(.active) {
+    color: rgba(37, 99, 235, 0.58) !important;
+    text-shadow: 0 1px 4px rgba(255, 255, 255, 0.9), 0 1px 8px rgba(15, 23, 42, 0.16) !important;
+}
+
+.card .favorite-button:not(.active):hover,
+.card .favorite-button:not(.active):focus-visible {
+    color: rgba(37, 99, 235, 0.82) !important;
+}
+
+.card .favorite-button.active,
+.card .favorite-button.active:hover,
+.card .favorite-button.active:focus-visible {
+    color: #2563eb !important;
+}
+/* Mobile header polish: logo and burger stay in one row, menu buttons become consistent. */
+@media (max-width: 900px) {
+    .top-bar .nav-inner {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 0.65rem !important;
+        padding: 0.7rem 0 !important;
+    }
+
+    .nav-header {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        flex-wrap: nowrap !important;
+        width: 100% !important;
+        gap: 0.75rem !important;
+    }
+
+    .brand {
+        flex: 0 0 auto !important;
+        margin: 0 !important;
+        min-width: 0 !important;
+    }
+
+    .brand-logo {
+        height: 46px !important;
+        width: auto !important;
+        max-width: 132px !important;
+        object-fit: contain !important;
+    }
+
+    .nav-toggle {
+        display: inline-flex !important;
+        flex: 0 0 48px !important;
+        width: 48px !important;
+        height: 48px !important;
+        min-width: 48px !important;
+        margin: 0 !important;
+        border-radius: 14px !important;
+        background: #f6fbff !important;
+        border: 1px solid #dbe7f5 !important;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08) !important;
+    }
+
+    .nav-toggle span {
+        width: 24px !important;
+        height: 3px !important;
+        background: #102033 !important;
+    }
+
+    .nav-menu {
+        width: 100% !important;
+        align-items: stretch !important;
+        gap: 0.85rem !important;
+        margin-top: 0 !important;
+        padding: 0.85rem !important;
+        border-radius: 18px !important;
+        background: rgba(255, 255, 255, 0.96) !important;
+        border: 1px solid #dbe7f5 !important;
+        box-shadow: 0 16px 36px rgba(0, 96, 100, 0.12) !important;
+    }
+
+    .nav-menu nav {
+        width: 100% !important;
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) !important;
+        gap: 0.45rem !important;
+    }
+
+    .top-bar .nav-menu nav a,
+    .top-bar .nav-menu .login-actions a,
+    .top-bar .nav-menu .authorize-block a,
+    .top-bar .nav-menu .logout-form button {
+        width: 100% !important;
+        min-height: 46px !important;
+        justify-content: center !important;
+        text-align: center !important;
+        border-radius: 14px !important;
+        padding: 0.78rem 0.95rem !important;
+        font-size: 0.98rem !important;
+        font-weight: 800 !important;
+        line-height: 1.15 !important;
+        box-shadow: none !important;
+    }
+
+    .top-bar .nav-menu nav a:not(.active),
+    .top-bar .nav-menu .login-actions a,
+    .top-bar .nav-menu .authorize-block a,
+    .top-bar .nav-menu .user-name {
+        background: #f7fbff !important;
+        border: 1px solid #e0eaf6 !important;
+        color: #1f2937 !important;
+    }
+
+    .top-bar .nav-menu nav a.active {
+        background: linear-gradient(135deg, var(--primary-color), var(--primary-dark)) !important;
+        border: 1px solid transparent !important;
+        color: #fff !important;
+        box-shadow: 0 10px 24px rgba(0, 96, 100, 0.18) !important;
+    }
+
+    .top-bar .nav-menu .login-actions,
+    .top-bar .nav-menu .authorize-block {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) !important;
+        width: 100% !important;
+        gap: 0.45rem !important;
+        align-items: stretch !important;
+    }
+
+    .top-bar .nav-menu .logout-form,
+    .top-bar .nav-menu .logout-form button {
+        width: 100% !important;
+    }
+
+    .top-bar .nav-menu .logout-form button {
+        background: linear-gradient(135deg, #0ea5b5, var(--primary-dark)) !important;
+        color: #fff !important;
+        border: 0 !important;
+        box-shadow: 0 10px 24px rgba(0, 96, 100, 0.18) !important;
+    }
+
+    .nav-counter {
+        margin-left: 0.5rem !important;
+    }
+}
+
+@media (max-width: 420px) {
+    .brand-logo {
+        height: 42px !important;
+        max-width: 120px !important;
+    }
+
+    .nav-toggle {
+        flex-basis: 46px !important;
+        width: 46px !important;
+        height: 46px !important;
+        min-width: 46px !important;
+    }
+}
+/* Final mobile navigation guard: keep the burger visible beside the logo. */
+@media (max-width: 900px) {
+    .top-bar .nav-header > .nav-toggle {
+        display: inline-flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        position: relative !important;
+        z-index: 30 !important;
+        flex: 0 0 46px !important;
+        width: 46px !important;
+        height: 46px !important;
+        min-width: 46px !important;
+        min-height: 46px !important;
+        padding: 0 !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 5px !important;
+        overflow: visible !important;
+    }
+
+    .top-bar .nav-header > .nav-toggle span {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        width: 23px !important;
+        height: 3px !important;
+        flex: 0 0 3px !important;
+        border-radius: 999px !important;
+        background: #102033 !important;
+    }
+
+    .top-bar .nav-header {
+        min-height: 50px !important;
+    }
+}
+/* Authoritative compact header: prevents mobile menu from leaving the viewport. */
+@media (max-width: 1100px) {
+    .top-bar {
+        overflow: visible !important;
+    }
+
+    .top-bar .container.nav-inner {
+        width: 100% !important;
+        max-width: none !important;
+        padding: 0.65rem 0.9rem !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 0.6rem !important;
+        box-sizing: border-box !important;
+        overflow: visible !important;
+    }
+
+    .top-bar .nav-header {
+        width: 100% !important;
+        min-width: 0 !important;
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) 46px !important;
+        align-items: center !important;
+        gap: 0.75rem !important;
+        box-sizing: border-box !important;
+    }
+
+    .top-bar .brand {
+        justify-self: start !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        flex-wrap: nowrap !important;
+    }
+
+    .top-bar .brand-logo {
+        width: auto !important;
+        height: 42px !important;
+        max-width: 126px !important;
+        object-fit: contain !important;
+    }
+
+    .top-bar .nav-toggle {
+        display: inline-flex !important;
+        justify-self: end !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        position: relative !important;
+        z-index: 50 !important;
+        width: 46px !important;
+        height: 46px !important;
+        min-width: 46px !important;
+        min-height: 46px !important;
+        max-width: 46px !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        flex: 0 0 46px !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 5px !important;
+        border-radius: 14px !important;
+        border: 1px solid #dbe7f5 !important;
+        background: #f7fbff !important;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08) !important;
+        box-sizing: border-box !important;
+    }
+
+    .top-bar .nav-toggle span {
+        display: block !important;
+        width: 23px !important;
+        height: 3px !important;
+        min-height: 3px !important;
+        border-radius: 999px !important;
+        background: #102033 !important;
+        flex: 0 0 3px !important;
+    }
+
+    .top-bar .nav-menu {
+        display: none !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        margin: 0 !important;
+        padding: 0.75rem !important;
+        box-sizing: border-box !important;
+        overflow: hidden !important;
+        border-radius: 18px !important;
+        border: 1px solid #dbe7f5 !important;
+        background: rgba(255, 255, 255, 0.98) !important;
+        box-shadow: 0 16px 36px rgba(0, 96, 100, 0.12) !important;
+    }
+
+    .top-bar .nav-menu.open {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 0.55rem !important;
+    }
+
+    .top-bar .nav-menu nav,
+    .top-bar .nav-menu .authorize-block,
+    .top-bar .nav-menu .login-actions {
+        width: 100% !important;
+        max-width: 100% !important;
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) !important;
+        gap: 0.45rem !important;
+        box-sizing: border-box !important;
+    }
+
+    .top-bar .nav-menu nav a,
+    .top-bar .nav-menu .authorize-block a,
+    .top-bar .nav-menu .login-actions a,
+    .top-bar .nav-menu .user-name,
+    .top-bar .nav-menu .logout-form,
+    .top-bar .nav-menu .logout-form button {
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        justify-content: center !important;
+        text-align: center !important;
+        white-space: normal !important;
+    }
+}

@@ -398,3 +398,16 @@
     padding: 0;
     font-size: 1.05rem;
 }
+/* Detail favorite star uses the same saved/unsaved language as catalog cards. */
+.detail-hero-actions .favorite-button:not(.active) {
+    color: rgba(37, 99, 235, 0.58);
+}
+
+.detail-hero-actions .favorite-button:not(.active):hover,
+.detail-hero-actions .favorite-button:not(.active):focus-visible {
+    color: rgba(37, 99, 235, 0.82);
+}
+
+.detail-hero-actions .favorite-button.active {
+    color: #2563eb;
+}

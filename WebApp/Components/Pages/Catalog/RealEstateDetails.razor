@@ -1,4 +1,4 @@
-﻿@page "/real-estate/{Id:int}"
+@page "/real-estate/{Id:int}"
 @using DataLayer
 @using DataLayer.Models
 @using global::System.Globalization
@@ -71,7 +71,7 @@ else
                     @if (!isUnavailable)
                     {
                         <button class="icon-button favorite-button @(isFavorite ? "active" : string.Empty)" @onclick="ToggleFavoriteAsync">
-                            <span aria-hidden="true">★</span>
+                            <span aria-hidden="true">@(isFavorite ? "★" : "☆")</span>
                             <span class="sr-only">@(isFavorite ? "Убрать из избранного" : "Добавить в избранное")</span>
                         </button>
                     }

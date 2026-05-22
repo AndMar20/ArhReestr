@@ -103,7 +103,7 @@ else
                             <button class="icon-button favorite-button @(favoriteIds.Contains(item.Id) ? "active" : string.Empty)"
                                     @onclick="() => ToggleFavoriteAsync(item.Id)"
                                     disabled="@IsLoading">
-                                <span aria-hidden="true">★</span>
+                                <span aria-hidden="true">@(favoriteIds.Contains(item.Id) ? "★" : "☆")</span>
                                 <span class="sr-only">
                                     @(favoriteIds.Contains(item.Id) ? "Убрать из избранного" : "Добавить в избранное")
                                 </span>
